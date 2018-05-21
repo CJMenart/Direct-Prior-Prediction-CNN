@@ -1,3 +1,8 @@
+"""set of basic augmentations for any image processing with a CNN. 
+
+NOTE: You are required to call augmentation methods here before any changing of the image range out of the 0-255 space. Otherwise the gamma-scaling works improperly.
+"""
+
 import numpy as np
 import cv2
 import csvreadall as csvr
@@ -7,10 +12,12 @@ GAMMA_RANGE = [0.5,2]
 AREA_RANGE = [200*200,600*600] 
 LB_SCALE_SET = [0.7,0.8,0.9,1.0,1.1,1.2,1.3]
 
-#NOTE: Due to lighting concerns, you are required to call augmentation methods here before any changing of the image range out of the 0-255 space
 
-#augment in the style of LabelBank
 def augment_LB(img,truth=None):
+	"""augment in the style of LabelBank paper by flipping and scaling.
+	
+	ground-truth 1-channel image will also be augmented to match if passed in."""
+
 	#flipping
 	if np.random.randint(0,2) == 0:
 		img = np.fliplr(img)
@@ -19,10 +26,13 @@ def augment_LB(img,truth=None):
 			
 	#scaling
 	scale = LB_SCALE_SET[np.random.randint(0,len(LB_SCALE_SET))]
-	(img,truth) = resizeRatio(img,scale,truth)
+	(img,truth) = resize_ratio(img,scale,truth)
 	return (img,truth)
 
-def augment_img(img,truth=None,fixedSz=None):
+def augment_img(img,truth=None,fixed_sz=None):
+	"""augments by flipping, scaling, gamma scaling.
+	ground-truth 1-channel image will also be augmented to match if passed in.
+	if fixed_sz is set, image will be resized to the size passed in """
 
 	#flipping
 	if np.random.randint(0,2) == 0:
@@ -30,23 +40,23 @@ def augment_img(img,truth=None,fixedSz=None):
 		if truth is not None:
 			truth = np.fliplr(truth)
 		
-	if fixedSz:
-		img = cv2.resize(img, (fixedSz, fixedSz))
+	if fixed_sz:
+		img = cv2.resize(img, (fixed_sz, fixed_sz))
 	else:
 		#randomly resize
 		#WARNING: No checks done to ensure length of smallest side
 		size = img.shape
 		area = size[0]*size[1]
-		(img,truth) = resizeRatio(img,np.sqrt(np.random.randint(AREA_RANGE[0],AREA_RANGE[1])/area),truth)
+		(img,truth) = resize_ratio(img,np.sqrt(np.random.randint(AREA_RANGE[0],AREA_RANGE[1])/area),truth)
 		#scale = LB_SCALE_SET[np.random.randint(0,len(LB_SCALE_SET))]
-		#(img,truth) = resizeRatio(img,scale,truth) #commented-out produces mysterious errors but only no HPC :(
+		#(img,truth) = resize_ratio(img,scale,truth) #commented-out produces mysterious errors but only on HPC :(
 		
 	#lighting augmentation
 	img = gamma_correction(img,np.random.uniform(GAMMA_RANGE[0],GAMMA_RANGE[1]))
 
 	return (img,truth)
 
-def resizeRatio(img,ratio,truth=None):
+def resize_ratio(img,ratio,truth=None):
 	size = img.shape
 	img = cv2.resize(img, ( int(round(size[1]*ratio)), int(round(size[0]*ratio))))
 	if truth is not None:
