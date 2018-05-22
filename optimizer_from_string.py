@@ -1,6 +1,7 @@
-"""construct tf-optimizer from net_opts settings."""
+"construct tf-optimizer from net_opts settings."
 
 import tensorflow as tf
+
 
 def optimizer_from_string(net_opts):
 	if net_opts['optimizer_type'] == 'Adam':

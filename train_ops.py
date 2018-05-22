@@ -1,4 +1,4 @@
-"""Encapsulates ops we use for training. Contains op to run with data and one post-batch. Logic can be involved if we're sending images one at a time and accumulating gradient."""
+"Encapsulates ops we use for training. Contains op to run with data and one post-batch. Logic can be involved if we're sending images one at a time and accumulating gradient."
 
 import tensorflow as tf
 import numpy as np
@@ -7,8 +7,9 @@ DEBUG = False
 
 
 class TrainOpHandler:
-	"""After constructing you should run train_op() when passing in new data, and post_batch_op() after every batch."""
+	"Will manage tensorflow ops needed for training model, given your settings. After constructing you should run train_op() when passing in new data, and post_batch_op() after every batch."
 
+	#TODO: Wonder whether we need to do something fancy so that everything is single-point-of-control when we're able to handle batching all at once versus accumulating...
 	def __init__(net_opts,loss):
 
 		optimizer = optimizer_from_string(net_opts)

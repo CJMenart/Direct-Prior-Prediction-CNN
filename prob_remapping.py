@@ -1,7 +1,4 @@
-'''
-This class encapsulates logic for generating loss and score metrics by remapping base-classifier probabilities to final probabilities
-using a class histogram and remapping matrix. This performs these operations in tensorflow
-'''
+"This class encapsulates logic for generating loss and score metrics by remapping base-classifier probabilities to final probabilities using a class histogram and remapping matrix. This performs these operations in tensorflow"
 
 import tensorflow as tf
 import numpy as np

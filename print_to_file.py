@@ -1,4 +1,5 @@
-"""print statement to a text file, opening and closing it within the call. Can print to both file and console at same time."""
+"print statement to a text file, opening and closing it within the call. Can print to both file and console at same time."
+
 
 def double_print(msg,text_log):
 	print(msg)

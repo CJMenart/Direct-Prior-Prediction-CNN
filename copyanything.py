@@ -1,5 +1,6 @@
-"""Recursively copy a directory."""
+"Recursively copy a directory."
 import shutil, errno
+
 
 def copyanything(src, dst):
     try:

@@ -1,7 +1,8 @@
-"""compute histogram of how often object classes occur in training data."""
+"compute histogram of how often object classes occur in training data."
 
 import numpy as np
 import csvreadall as csvr
+
 
 def class_frequency(truth_dir,num_labels,train_img_names):
 	class_freq = np.zeros((1,num_labels),tf.float32)

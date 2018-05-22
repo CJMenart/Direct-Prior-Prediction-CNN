@@ -1,7 +1,5 @@
-"""set of basic augmentations for any image processing with a CNN. 
-
-NOTE: You are required to call augmentation methods here before any changing of the image range out of the 0-255 space. Otherwise the gamma-scaling works improperly.
-"""
+"set of basic augmentations for any image processing with a CNN. \
+NOTE: You are required to call augmentation methods here before any changing of the image range out of the 0-255 space. Otherwise the gamma-scaling works improperly."
 
 import numpy as np
 import cv2
@@ -14,9 +12,8 @@ LB_SCALE_SET = [0.7,0.8,0.9,1.0,1.1,1.2,1.3]
 
 
 def augment_LB(img,truth=None):
-	"""augment in the style of LabelBank paper by flipping and scaling.
-	
-	ground-truth 1-channel image will also be augmented to match if passed in."""
+	"augment in the style of LabelBank paper by flipping and scaling.\
+	ground-truth 1-channel image will also be augmented to match if passed in."
 
 	#flipping
 	if np.random.randint(0,2) == 0:
@@ -29,10 +26,11 @@ def augment_LB(img,truth=None):
 	(img,truth) = resize_ratio(img,scale,truth)
 	return (img,truth)
 
+	
 def augment_img(img,truth=None,fixed_sz=None):
-	"""augments by flipping, scaling, gamma scaling.
-	ground-truth 1-channel image will also be augmented to match if passed in.
-	if fixed_sz is set, image will be resized to the size passed in """
+	"augments by flipping, scaling, gamma scaling.\
+	ground-truth 1-channel image will also be augmented to match if passed in.\
+	if fixed_sz is set, image will be resized to the size passed in "
 
 	#flipping
 	if np.random.randint(0,2) == 0:
@@ -56,6 +54,7 @@ def augment_img(img,truth=None,fixed_sz=None):
 
 	return (img,truth)
 
+	
 def resize_ratio(img,ratio,truth=None):
 	size = img.shape
 	img = cv2.resize(img, ( int(round(size[1]*ratio)), int(round(size[0]*ratio))))
@@ -63,10 +62,12 @@ def resize_ratio(img,ratio,truth=None):
 		truth = cv2.resize(truth,(int(round(size[1]*ratio)), int(round(size[0]*ratio))),interpolation=cv2.INTER_NEAREST)
 	return (img,truth)
 	
+	
 def gamma_correction(img, correction):
     img = img/255.0
     img = cv2.pow(img, 1/correction)
     return np.uint8(img*255)
+	
 	
 def test_augment(img_fname,truth_fname,save_dir):
 	img = cv2.imread(img_fname)

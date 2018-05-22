@@ -1,4 +1,4 @@
-"""Encapsulates some logic for trying a couple different approaches to get any saved model checkpoints out of a folder--could be saved in a couple different ways in TF."""
+"Encapsulates some logic for trying a couple different approaches to get any saved model checkpoints out of a folder--could be saved in a couple different ways in TF."
 
 import tensorflow as tf
 import fnmatch

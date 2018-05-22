@@ -1,4 +1,4 @@
-""" Marshalls all the parameters and settings to launch prior prediction, particularly as a batch job on high performance clusters."""
+" Marshalls all the parameters and settings to launch prior prediction, particularly as a batch job on high performance clusters."
 import prior_prediction_learning as net
 import sys
 import os
@@ -97,6 +97,7 @@ if __name__ == '__main__':
 	net_opts['is_loss_weighted_by_class'] = args.is_loss_weighted_by_class
 	net_opts['base_net'] = args.base_net
 	net_opts['is_gpu'] = args.is_gpu
+	net_opts['err_thresh'] = 1e-3
 	
 	#currently unused, may implement later
 	net_opts['is_im_size_fixed'] = False

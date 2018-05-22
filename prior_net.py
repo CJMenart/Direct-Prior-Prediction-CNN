@@ -1,4 +1,4 @@
-# Wraps around a base network (ResNet or Inception) and predicts a distribution directly from passed-in image
+"Wraps around a base network (ResNet or Inception) and predicts a distribution directly from passed-in image"
 
 from tensorflow.contrib.slim.nets import resnet_v1
 from tensorflow.contrib.slim.nets import resnet_v2
@@ -16,19 +16,20 @@ DEBUG = True
 
 #TODO: Make nets inherit from a 'net' class with certain public things exposed
 
+
 #WARNING: Must not be called while inside another scope. Until I fix the include just a min bro TODO
-class PriorNetWrapper:
+class PriorNet:
 
 	def __init__(self,net_opts):
 		self.inputs = tf.placeholder(DAT_TYPE,[None,None,None,3])
-		self.isTrain = tf.placeholder(tf.bool,None)
+		self.is_train = tf.placeholder(tf.bool,None)
 		# we are loading segmentation maps in case we change this later to be more advanced. Future-proofing. SIGH TODO include option for simple priors to shave off load time?
 		# this should be sufficient for computing prior targets. All 'black box' targets will be computed using actual remapping, so 
 		# any other component I can think of would come directly from this label map
 		# as this is only used for binary priors (even then not always?) consider making it internal, some kind of rolling avg
 		self.seg_target = tf.placeholder(tf.int64,[None,None,None]) #batch,width,height
-		self.processed_seg_target = self.expand_target(self.seg_target,net_opts)
-		self.prior_target = self.pool_prior_target(self.processed_seg_target,net_opts)
+		self.processed_seg_target = self._expand_target(self.seg_target,net_opts)
+		self.prior_target = self._pool_prior_target(self.processed_seg_target,net_opts)
 		#below three are not necessary to feed if you don't use remapping loss or run seg_acc
 		self.remap_target = tf.placeholder(tf.int64,[None,None])
 		self.remap_base_prob = tf.placeholder(DAT_TYPE,[None,None,net_opts['num_labels']])		
@@ -45,7 +46,7 @@ class PriorNetWrapper:
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
 		if net_opts['base'] == 'resnet_v1':
 			with slim.arg_scope(resnet_v1.resnet_arg_scope()) as scope:
-				resnet_out, _ = resnet_v1.resnet_v1_152(self.inputs,is_training=False if net_opts['is_batchnorm_fixed'] else self.isTrain,global_pool=True)
+				resnet_out, _ = resnet_v1.resnet_v1_152(self.inputs,is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train,global_pool=True)
 				if DEBUG:
 					print('resnet_out:')
 					print(resnet_out.shape.as_list())
@@ -53,7 +54,7 @@ class PriorNetWrapper:
 				base_scope = 'resnet_v1_152'
 		elif net_opts['base'] == 'resnet_v2':
 			with slim.arg_scope(resnet_v2.resnet_arg_scope()) as scope:
-				resnet_out, _ = resnet_v2.resnet_v2_152(self.inputs,is_training=False if net_opts['is_batchnorm_fixed'] else self.isTrain,global_pool=True)
+				resnet_out, _ = resnet_v2.resnet_v2_152(self.inputs,is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train,global_pool=True)
 				if DEBUG:
 					print('resnet_out:')
 					print(resnet_out.shape.as_list())
@@ -61,7 +62,7 @@ class PriorNetWrapper:
 				base_scope = 'resnet_v2_152'
 		elif net_opts['base'] == 'inception':
 			with slim.arg_scope(inception_arg_scope()):
-				logits, end_points = inception.inception_v4(self.inputs, num_classes=None, is_training=False if net_opts['is_batchnorm_fixed'] else self.isTrain)
+				logits, end_points = inception.inception_v4(self.inputs, num_classes=None, is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train)
 				self.base_net = logits
 				base_scope = 'InceptionV4'
 		else:
@@ -78,10 +79,10 @@ class PriorNetWrapper:
 		vars_to_restore = slim.get_variables_to_restore(include=[scope])
 		#print('vars_to_restore:')
 		#print(vars_to_restore)
-		self.pretrainSaver = tf.train.Saver(vars_to_restore)
+		self._pretrain_saver = tf.train.Saver(vars_to_restore)
 
-		self.prior = self.prior_predictor(net_opts)
-		self.direct_prior_loss = self.weighted_prior_loss(net_opts)
+		self.prior = self._prior_predictor(net_opts)
+		self.direct_prior_loss = self._weighted_prior_loss(net_opts)
 		
 		#What's interesting is that if we didn't have to save and load softmax, but were performing remapping using a model in tensorflow that we ran, this memory limit
 		#wouldn't really exist. When we're loading off disk, we have to use 100-pixel examples, but we could remap the whole thing with an integrated model, it's much faster.
@@ -96,11 +97,11 @@ class PriorNetWrapper:
 			self.loss = self.direct_prior_loss
 		
 		if net_opts['is_distribution']:
-			self.prior_err = self.thresh_err(net_opts)
+			self.prior_err = thresh_err(self.prior,self.prior_target,net_opts['err_thresh'])
 		else:
-			self.prior_err = self.hamming_err(net_opts)
+			self.prior_err = hamming_err(self.prior,self.prior_target)
 	
-	def prior_predictor(self,net_opts):
+	def _prior_predictor(self,net_opts):
 		#prior predictor here is very simple. Assume network ended in a global average pooling operation and add 1 FC layer, non-linearity
 
 		in_feat = self.base_net
@@ -144,9 +145,10 @@ class PriorNetWrapper:
 			return activation
 		
 	def load_weights(self,init_weight_fname,sess,net_opts):
-		self.pretrainSaver.restore(sess,init_weight_fname)
+		"Initializes (or re-initializes) the pre-trained base model of the network from file. Should be called after running global initializer and before using."
+		self._pretrain_saver.restore(sess,init_weight_fname)
 
-	def weighted_prior_loss(self,net_opts):
+	def _weighted_prior_loss(self,net_opts):
 		#specific loss we want to use in the case of binary prior. 
 		if net_opts['is_distribution']:
 			return -1 #TODO ask Mo for good loss. Probably select one of several
@@ -164,7 +166,7 @@ class PriorNetWrapper:
 			return loss
 			
 	#downsamples the processed 4d target tensor to form a prior. Can form binary or histogram prior
-	def pool_prior_target(self,target,net_opts):
+	def _pool_prior_target(self,target,net_opts):
 		if net_opts['is_distribution']:
 			target = tf.reduce_max(target,[1,2])
 		else:
@@ -173,16 +175,9 @@ class PriorNetWrapper:
 		
 	#expands a 2d map of the correct classes for a tensor and expands to 3d one-hot vectors
 	#tensors go from 3d to 4d--batch dim at beginning
-	def expand_target(self,target,net_opts): 
+	def _expand_target(self,target,net_opts): 
 		target = tf.one_hot(target,net_opts['num_labels']+1,dtype=DAT_TYPE,axis=3)
 		target = target[:,:,:,1:]
 		return target
 		
-	#sum of 'hamming distances' when rounded to be binary
-	def hamming_err(self,net_opts):
-		rounded = tf.round(self.prior)
-		return tf.reduce_sum(tf.abs(rounded-tf.round(self.prior_target)))
-		
-	#so kind of arbitrary
-	def thresh_err(self,net_opts):
-		return tf.reduce_sum(tf.cast(tf.abs(self.prior-self.prior_target) >= net_opts['err_thresh'],tf.float32))
+	

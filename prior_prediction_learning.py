@@ -1,4 +1,4 @@
-"""Controls training/testing loop for deep learning of priors."""
+"Controls training/testing loop for deep learning of priors."
 
 #import time
 import numpy as np
@@ -27,7 +27,7 @@ DEBUG = True
 
 #TODO not tested since update
 def train_on_clusters(paths,net_opts):
-	"""Trains a network on the entire dataset, then recurses into a sub-directory and fine-tunes a copy on each specified cluster within that dataset."""
+	"Trains a network on the entire dataset, then recurses into a sub-directory and fine-tunes a copy on each specified cluster within that dataset."
 	
 	#global train
 	train_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
@@ -54,7 +54,7 @@ def train_on_clusters(paths,net_opts):
 
 		
 def train_on_all(paths,net_opts):
-	"""Wrapper for 'training' to just train once on whole dataset."""
+	"Wrapper for 'training' to just train once on whole dataset."
 	#TODO: Pull out reading/filetype-specific logic into own function
 	train_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
 	val_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
@@ -63,7 +63,7 @@ def train_on_all(paths,net_opts):
 	
 	
 def training(paths,net_opts,train_img_names,val_img_names):
-	"""Train the actual network here. Can restart training from checkpoint if stopped."""
+	"Train the actual network here. Can restart training from checkpoint if stopped."
 	
 	#Settings and paths and stuff			
 	text_log = os.path.join(paths['checkpoint_dir'], "NetworkLog.txt")
@@ -121,7 +121,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 		sess = tf.InteractiveSession(config=config)
 	
 	#TODO: Move reg down into net when you make a network base class...
-	network = net.PriorNetWrapper(net_opts)
+	network = net.PriorNet(net_opts)
 	best_val_loss = tf.Variable(sys.float_info.max,trainable=False,name="best_val_loss")
 	reg_loss = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 	total_loss = network.loss + reg_loss
@@ -173,7 +173,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 				feed_dict = {network.inputs:val_imgs[v_ind],
 							network.seg_target:val_targets[v_ind],
 							network.class_frequency: class_freq,
-							network.isTrain: False}
+							network.is_train: False}
 							
 				if net_opts['remapping_loss_weight'] > 0:
 					feed_dict[network.remap_target] = val_remap_targets[v_ind]
@@ -225,7 +225,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 				network.inputs:img[np.newaxis,:,:,:],
 				network.seg_target: truth[np.newaxis,:,:],
 				network.class_frequency: class_freq,
-				network.isTrain: True}
+				network.is_train: True}
 				
 			if net_opts['remapping_loss_weight'] > 0:
 				remap_samples = np.array(csvr.readall(os.path.join(paths['presoftmaxDir'],train_img_names[t_ind][:-3] + "csv")),csvr.READ_FLOAT)
