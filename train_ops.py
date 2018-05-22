@@ -10,7 +10,7 @@ class TrainOpHandler:
 	"Will manage tensorflow ops needed for training model, given your settings. After constructing you should run train_op() when passing in new data, and post_batch_op() after every batch."
 
 	#TODO: Wonder whether we need to do something fancy so that everything is single-point-of-control when we're able to handle batching all at once versus accumulating...
-	def __init__(net_opts,loss):
+	def __init__(self,net_opts,loss):
 
 		optimizer = optimizer_from_string(net_opts)
 		
@@ -23,12 +23,12 @@ class TrainOpHandler:
 			for gv in enumerate(gradients):
 				print(gv)
 			print('End of Gradients.')
-		if net_opts['clipped_gradients']:
+		if net_opts['is_clipped_gradients']:
 			self._gradients = [(tf.clip_by_value(grad, -1.0, 1.0), var) for grad, var in self._gradients] # gradient capping
 		self._accum_gradients = [tf.Variable(tf.zeros_like(tv.initialized_value()), trainable=False) for tv in trainable_vars]
 		self._accumulate = [self._accum_gradients[i].assign_add(gv[0]) for i, gv in enumerate(self._gradients)]
 		self._apply_grad = optimizer.apply_gradients([(self._accum_gradients[i], gv[1]) for i, gv in enumerate(self._gradients)])
-		with tf.control_dependencies(self._apply_grad): #ensure we update then clear by calling a single op
+		with tf.control_dependencies([self._apply_grad]): #ensure we update then clear by calling a single op
 			self._clear_gradients = [tv.assign(tf.zeros_like(tv)) for tv in self._accum_gradients]
 		
 		if net_opts['iter_end_only_training'] > 0:
@@ -36,12 +36,12 @@ class TrainOpHandler:
 			if DEBUG:
 				print(trainable_vars_fresh)
 			self._gradients_fresh = optimizer.compute_gradients(loss,var_list=trainable_vars_fresh)
-			if net_opts['clipped_gradients']:
+			if net_opts['is_clipped_gradients']:
 				self._gradients_fresh = [(tf.clip_by_value(grad, -1.0, 1.0), var) for grad, var in self._gradients_fresh] # gradient capping
 			self._accum_gradients_fresh = [tf.Variable(tf.zeros_like(tv.initialized_value()), trainable=False) for tv in trainable_vars_fresh]
 			self._accumulate_fresh = [self._accum_gradients_fresh[i].assign_add(gv[0]) for i, gv in enumerate(self._gradients_fresh)]
 			self._apply_grad_fresh = optimizer.apply_gradients([(self._accum_gradients_fresh[i], gv[1]) for i, gv in enumerate(self._gradients_fresh)])
-			with tf.control_dependencies(self._apply_grad_fresh):
+			with tf.control_dependencies([self._apply_grad_fresh]):
 				self._clear_gradients_fresh = [tv.assign(tf.zeros_like(tv)) for tv in self._accum_gradients_fresh]
 		
 		#WARNING: Batch norm ops only updated on end-to-end training. And is weird if you're accumulating gradients

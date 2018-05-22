@@ -44,7 +44,7 @@ class PriorNet:
 		
 		#WARNING: 'is_training' option now actually used--don't give batch sizes of 1. Batch norms insides
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
-		if net_opts['base'] == 'resnet_v1':
+		if net_opts['base_net'] == 'resnet_v1':
 			with slim.arg_scope(resnet_v1.resnet_arg_scope()) as scope:
 				resnet_out, _ = resnet_v1.resnet_v1_152(self.inputs,is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train,global_pool=True)
 				if DEBUG:
@@ -52,7 +52,7 @@ class PriorNet:
 					print(resnet_out.shape.as_list())
 				self.base_net = tf.squeeze(resnet_out,[1,2])
 				base_scope = 'resnet_v1_152'
-		elif net_opts['base'] == 'resnet_v2':
+		elif net_opts['base_net'] == 'resnet_v2':
 			with slim.arg_scope(resnet_v2.resnet_arg_scope()) as scope:
 				resnet_out, _ = resnet_v2.resnet_v2_152(self.inputs,is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train,global_pool=True)
 				if DEBUG:
@@ -60,7 +60,7 @@ class PriorNet:
 					print(resnet_out.shape.as_list())
 				self.base_net = tf.squeeze(resnet_out,[1,2])
 				base_scope = 'resnet_v2_152'
-		elif net_opts['base'] == 'inception':
+		elif net_opts['base_net'] == 'inception':
 			with slim.arg_scope(inception_arg_scope()):
 				logits, end_points = inception.inception_v4(self.inputs, num_classes=None, is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train)
 				self.base_net = logits
@@ -88,7 +88,7 @@ class PriorNet:
 		#wouldn't really exist. When we're loading off disk, we have to use 100-pixel examples, but we could remap the whole thing with an integrated model, it's much faster.
 		#but right now we're refining a matconvnet model...still, keep this in mind for future
 		if net_opts['remapping_loss_weight'] > 0:
-			self.remapping_loss,self.seg_acc,_ = prob_remapping.conf_remap_loss_and_metrics(self.map_mat,self.prior,self.remap_base_prob,self.remap_target,net_opts['batchSize'],net_opts['epsilon'])
+			self.remapping_loss,self.seg_acc,_ = prob_remapping.conf_remap_loss_and_metrics(self.map_mat,self.prior,self.remap_base_prob,self.remap_target,net_opts['batch_size'],net_opts['epsilon'])
 		else:
 			self.seg_acc = tf.constant(-1.0,shape=None,dtype=DAT_TYPE)
 		if net_opts['remapping_loss_weight'] > 0:
@@ -96,7 +96,7 @@ class PriorNet:
 		else:
 			self.loss = self.direct_prior_loss
 		
-		if net_opts['is_distribution']:
+		if net_opts['is_target_distribution']:
 			self.prior_err = thresh_err(self.prior,self.prior_target,net_opts['err_thresh'])
 		else:
 			self.prior_err = hamming_err(self.prior,self.prior_target)
@@ -109,7 +109,7 @@ class PriorNet:
 		out_chann = net_opts['hid_layer_width']
 		for lay in range(net_opts['num_hid_layers']):
 			with tf.variable_scope('fc_%d' % lay) as scope:
-				weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularizationWeight']))
+				weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
 				biases = tf.Variable(tf.constant(0.01, shape=[out_chann], dtype=DAT_TYPE),
 									 trainable=True, name='biases')
 				
@@ -126,14 +126,14 @@ class PriorNet:
 				
 		out_chann = net_opts['num_labels']	
 		with tf.variable_scope('fc_final') as scope:
-			weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularizationWeight']))
+			weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
 			biases = tf.Variable(tf.constant(0.01, shape=[out_chann], dtype=DAT_TYPE),
 								 trainable=True, name='biases')
 			
 			pre_act = tf.matmul(in_feat,weights)
 			pre_act = tf.nn.bias_add(pre_act, biases)
 			
-			if net_opts['is_distribution']:
+			if net_opts['is_target_distribution']:
 				activation = tf.nn.relu(pre_act, name='activation')
 				activation = activation/tf.reduce_sum(activation,-1)
 			else: #assumed that we basically have binary target if not distribution
@@ -150,7 +150,7 @@ class PriorNet:
 
 	def _weighted_prior_loss(self,net_opts):
 		#specific loss we want to use in the case of binary prior. 
-		if net_opts['is_distribution']:
+		if net_opts['is_target_distribution']:
 			return -1 #TODO ask Mo for good loss. Probably select one of several
 		else:
 			#Cross-entropy loss. TODO factor out 
@@ -167,7 +167,7 @@ class PriorNet:
 			
 	#downsamples the processed 4d target tensor to form a prior. Can form binary or histogram prior
 	def _pool_prior_target(self,target,net_opts):
-		if net_opts['is_distribution']:
+		if net_opts['is_target_distribution']:
 			target = tf.reduce_max(target,[1,2])
 		else:
 			target = tf.reduce_mean(target,[1,2])

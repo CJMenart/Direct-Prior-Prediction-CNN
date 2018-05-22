@@ -19,17 +19,9 @@ if __name__ == '__main__':
 	parser.add_argument("--learn_rate",type=float,default=1e-3)
 	parser.add_argument("--is_eval_mode",type=int,default=False)
 	parser.add_argument("--max_iter",type=int,default=1000000)
-	parser.add_argument("--is_custom_paths",type=int,default=False)
-	parser.add_argument("--weight_file",type=str,default=None)
-	parser.add_argument("--train_name_file",type=str,default=None)
-	parser.add_argument("--test_name_file",type=str,default=None)
-	parser.add_argument("--val_name_file",type=str,default=None)
-	parser.add_argument("--im_dir",type=str,default=None)
-	parser.add_argument("--truth_dir",type=str,default=None)
 	parser.add_argument("--iter_end_only_training",type=int,default=1200)
 	parser.add_argument("--is_clipped_gradients",type=int,default=False)
 	parser.add_argument("--remapping_loss_weight",type=float,default=0)
-	parser.add_argument("--presoftmax_dir",type=str,default=None)
 	parser.add_argument("--batches_per_val_check",type=int,default=50)
 	parser.add_argument("--is_batchnorm_fixed",type=int,default=False)
 	parser.add_argument("--dropout_prob",type=float,default=0.5)
@@ -37,18 +29,28 @@ if __name__ == '__main__':
 	parser.add_argument("--num_hid_layers",type=int,default=1)
 	parser.add_argument("--is_target_distribution",type=int,default=False)
 	parser.add_argument("--is_loss_weighted_by_class",type=int,default=False)
+	parser.add_argument("--base_net",type=str,default='resnet_v2')
+	parser.add_argument("--is_gpu",type=int,default=True)
+	
+	parser.add_argument("--is_hpc_paths",type=int,default=False)
+	parser.add_argument("--weight_file",type=str,default=None)
+	parser.add_argument("--train_name_file",type=str,default=None)
+	parser.add_argument("--test_name_file",type=str,default=None)
+	parser.add_argument("--val_name_file",type=str,default=None)
+	parser.add_argument("--im_dir",type=str,default=None)
+	parser.add_argument("--truth_dir",type=str,default=None)
+	parser.add_argument("--presoftmax_dir",type=str,default=None)
 	parser.add_argument("--map_mat_file",type=str,default=None)
 	parser.add_argument("--train_clusters_file",type=str,default=None)
 	parser.add_argument("--val_clusters_file",type=str,default=None)
-	parser.add_argument("--base_net",type=str,default='resnet_v2')
-	parser.add_argument("--is_gpu",type=int,default=True)
+	
 	
 	args = parser.parse_args()
 	
 	paths = {}
 	net_opts = {}
 
-	if args.mobilePaths:
+	if not args.is_hpc_paths:
 		paths['checkpoint_dir'] = args.checkpoint_dir
 		paths['train_name_file'] = args.train_name_file
 		paths['weight_file'] = args.weight_file
@@ -74,7 +76,7 @@ if __name__ == '__main__':
 		paths['train_clusters_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,'Training Data','train_clustering.csv')
 		paths['val_clusters_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,'Testing Data','val_clustering.csv')
 		paths['map_mat_file'] = 'TODO'
-		paths['model_name'] = 'DirectPriorNet'
+	paths['model_name'] = 'DirectPriorNet'
 		
 	net_opts['batches_per_val_check'] = args.batches_per_val_check
 	net_opts['regularization_weight'] = args.regularization_weight
@@ -93,7 +95,7 @@ if __name__ == '__main__':
 	net_opts['dropout_prob'] = args.dropout_prob
 	net_opts['hid_layer_width'] = args.hid_layer_width
 	net_opts['num_hid_layers'] = args.num_hid_layers
-	net_opts['is_distribution'] = args.is_distribution
+	net_opts['is_target_distribution'] = args.is_target_distribution
 	net_opts['is_loss_weighted_by_class'] = args.is_loss_weighted_by_class
 	net_opts['base_net'] = args.base_net
 	net_opts['is_gpu'] = args.is_gpu
@@ -114,7 +116,7 @@ if __name__ == '__main__':
 		print('NetTest: Error: unrecognized dataset name')
 		
 	#TODO probably will neeed more switch cases in future
-	if args.evalMode:
+	if args.is_eval_mode:
 		net.testing(paths,net_opts)
 	else:
 		net.train_on_all(paths,net_opts)

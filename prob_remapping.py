@@ -12,14 +12,14 @@ import os
 #WARNING: batch size cannot be a tensor. Must be fixed to include this in graph
 #Also, 'batch_size' doesn't necessarily mean batch size. If you're passing in images
 #without resizing or padding, one at a time, then this is one.
-def conf_remap_loss_and_metrics(map_mat,hist,base_prob,truth,batchSize,epsilon):
+def conf_remap_loss_and_metrics(map_mat,hist,base_prob,truth,batch_size,epsilon):
 	truth_vec = tf.one_hot(truth,base_prob.shape.as_list()[2]+1,on_value=1.0,off_value=0.0,axis=2)[:,:,1:]
 	#print('TruthVec:')
 	#print(truthVec.shape.as_list())
 	#mapped = map(lambda x,y: remap(map_mat,x,y),(hist,base_prob))
 	mapped = []
 	mats = []
-	for b in range(batchSize):
+	for b in range(batch_size):
 		re,mat = remap(map_mat,hist[b,:],base_prob[b,:,:],epsilon)
 		mapped.append(re)
 		mats.append(mat)

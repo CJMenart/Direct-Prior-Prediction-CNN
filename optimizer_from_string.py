@@ -2,7 +2,6 @@
 
 import tensorflow as tf
 
-
 def optimizer_from_string(net_opts):
 	if net_opts['optimizer_type'] == 'Adam':
 			optimizer = tf.train.AdamOptimizer(net_opts['learn_rate'],epsilon=0.01)

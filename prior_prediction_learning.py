@@ -15,6 +15,8 @@ from copyanything import *
 from print_to_file import *
 from class_frequency import *
 from train_ops import *
+from my_load_mat import *
+from get_latest_model import *
 #turns off annoying warnings about compiling TF for vector instructions
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
@@ -59,7 +61,7 @@ def train_on_all(paths,net_opts):
 	train_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
 	val_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
 
-	training(paths,net_opts,paths['checkpoint_dir'],net_opts['max_iter'],train_img_names,val_img_names)	
+	training(paths,net_opts,train_img_names,val_img_names)	
 	
 	
 def training(paths,net_opts,train_img_names,val_img_names):
@@ -81,11 +83,11 @@ def training(paths,net_opts,train_img_names,val_img_names):
 	val_remap_targets = []
 	val_base_probs = []
 	for v in range(len(val_img_names)):
-		img = cv2.imread(os.path.join(paths['imDir'], val_img_names[v]))
+		img = cv2.imread(os.path.join(paths['im_dir'], val_img_names[v]))
 		sz = img.shape
 		val_imgs.append(img[np.newaxis,:,:,:])
 		
-		truth = np.array(csvr.readall(os.path.join(paths['truth_dir'], val_img_names[v][:-3] + 'csv'),csvr.READ_INT))
+		truth = my_load_int_mat(os.path.join(paths['truth_dir'], val_img_names[v][:-3] + 'mat'))		
 		val_targets.append(truth[np.newaxis,:,:])
 		
 		if net_opts['remapping_loss_weight'] > 0:
@@ -102,7 +104,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 		double_print(val_targets[0],text_log)
 	
 	#compute average of classes present for binary loss weights
-	if not net_opts['is_distribution'] and net_opts['is_loss_weighted_by_class']:
+	if not net_opts['is_target_distribution'] and net_opts['is_loss_weighted_by_class']:
 		double_print('Computing class frequencies...',text_log)
 		class_freq = class_frequency(paths['truth_dir'],net_opts['num_labels'],train_img_names)
 		double_print(class_freq,text_log)
@@ -147,7 +149,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 		double_print('Creating a new network...',text_log)
 		start = 0
 		tf.global_variables_initializer().run()
-		network.load_weights(paths['weightFile'],sess,net_opts)
+		network.load_weights(paths['weight_file'],sess,net_opts)
 	model_name = os.path.join(paths['checkpoint_dir'],paths['model_name'])
 		
 	trainable_vars = tf.trainable_variables()	
@@ -210,11 +212,11 @@ def training(paths,net_opts,train_img_names,val_img_names):
 				cur_train_indices = list(range(len(train_img_names)))		
 			t_ind = cur_train_indices.pop(random.randint(0,len(cur_train_indices)-1))
 			
-			im_name = os.path.join(paths['imDir'], train_img_names[t_ind])
+			im_name = os.path.join(paths['im_dir'], train_img_names[t_ind])
 			#print(im_name)
 			img = cv2.imread(im_name)
 			sz = img.shape
-			truth = np.array(csvr.readall(os.path.join(paths['truth_dir'],train_img_names[t_ind][:-3] + 'csv'),csvr.READ_INT)).astype('uint16')
+			truth = my_load_int_mat(os.path.join(paths['truth_dir'],train_img_names[t_ind][:-3] + 'mat'))			
 			(img,truth) = augment_img(img,truth)
 			#debug
 			double_print('img,truth:',text_log)
