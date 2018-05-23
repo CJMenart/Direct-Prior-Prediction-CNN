@@ -4,6 +4,7 @@ import sys
 import os
 import numpy as np
 import argparse
+from cvl_2018_data_loader import *
 
 #There is one required positional paramter, the directory to save checkpoints in.
 #NOTE: intean command-line arguments are integers here--there's no great way to do it with argparse.
@@ -31,53 +32,22 @@ if __name__ == '__main__':
 	parser.add_argument("--is_loss_weighted_by_class",type=int,default=False)
 	parser.add_argument("--base_net",type=str,default='resnet_v2')
 	parser.add_argument("--is_gpu",type=int,default=True)
+	parser.add_argument("--fcn_weight_file",type=str,default=None)
 	
-	parser.add_argument("--is_hpc_paths",type=int,default=False)
-	parser.add_argument("--weight_file",type=str,default=None)
-	parser.add_argument("--train_name_file",type=str,default=None)
-	parser.add_argument("--test_name_file",type=str,default=None)
-	parser.add_argument("--val_name_file",type=str,default=None)
-	parser.add_argument("--im_dir",type=str,default=None)
-	parser.add_argument("--truth_dir",type=str,default=None)
-	parser.add_argument("--presoftmax_dir",type=str,default=None)
-	parser.add_argument("--map_mat_file",type=str,default=None)
-	parser.add_argument("--train_clusters_file",type=str,default=None)
-	parser.add_argument("--val_clusters_file",type=str,default=None)
-	
+	#path stuff--something here will probably be required
+	parser.add_argument("--data_loader_type",type=str,default="CVL_2018")
+	parser.add_argument("--base_fcn_weight_dir",type=str,default=None)
+	parser.add_argument("--dataset_dir",type=str,default=None)
 	
 	args = parser.parse_args()
-	
-	paths = {}
 	net_opts = {}
 
-	if not args.is_hpc_paths:
-		paths['checkpoint_dir'] = args.checkpoint_dir
-		paths['train_name_file'] = args.train_name_file
-		paths['weight_file'] = args.weight_file
-		paths['test_name_file'] = args.test_name_file
-		paths['im_dir'] = args.im_dir
-		paths['truth_dir'] = args.truth_dir
-		paths['presoftmax_dir'] = args.presoftmax_dir
-		paths['map_mat_file'] = args.map_mat_file
+	if args.data_loader_type == 'CVL_2018':
+		data_loader = CVL2018DataLoader(args.base_fcn_weight_dir,args.dataset_dir)	
 	else:
-		base_dir = '/p/work1/workspace/cmenart/'
-		paths['checkpoint_dir'] = os.path.join(base_dir,args.dataset,args.checkpoint_dir)
-		paths['test_name_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,'Testing Data','prior_test_img_names.csv')
-		paths['train_name_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,'Training Data','prior_train_img_names.csv')
-		paths['val_name_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,'Training Data','prior_val_img_names.csv')
-		if args.weight_file:
-			paths['weight_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,args.weight_file) 
-		else:
-			paths['weight_file'] = None
-		paths['train_name_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,'Training Data','prior_train_img_names.csv')
-		paths['im_dir'] = os.path.join(base_dir, args.dataset, 'Images/')
-		paths['truth_dir'] = os.path.join(base_dir,args.dataset,'Ground Truth CSV/')
-		paths['presoftmax_dir'] = os.path.join(base_dir,args.dataset,'Presoftmax CSV/')
-		paths['train_clusters_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,'Training Data','train_clustering.csv')
-		paths['val_clusters_file'] = os.path.join(base_dir,'Prior Classification ' + args.dataset,'Testing Data','val_clustering.csv')
-		paths['map_mat_file'] = 'TODO'
-	paths['model_name'] = 'DirectPriorNet'
+		raise Exception("data_loader type not recognized.")
 		
+	net_opts['model_name'] = 'DirectPriorNet'	
 	net_opts['batches_per_val_check'] = args.batches_per_val_check
 	net_opts['regularization_weight'] = args.regularization_weight
 	net_opts['optimizer_type'] = args.optimizer_type
@@ -100,23 +70,27 @@ if __name__ == '__main__':
 	net_opts['base_net'] = args.base_net
 	net_opts['is_gpu'] = args.is_gpu
 	net_opts['err_thresh'] = 1e-3
+	net_opts['fcn_weight_file'] = args.fcn_weight_file
+	net_opts['iter_per_automatic_backup'] = 10000
 	
 	#currently unused, may implement later
-	net_opts['is_im_size_fixed'] = False
+	#net_opts['is_im_size_fixed'] = False
 	
+	'''
 	if args.dataset == 'MS_COCO':
-		net_opts['num_labels'] = 90
+		data_loader.num_labels() = 90
 	elif args.dataset == 'PASCAL_Context':
-		net_opts['num_labels'] = 59
+		data_loader.num_labels() = 59
 	elif args.dataset == 'ADE20K':
-		net_opts['num_labels'] = 150
+		data_loader.num_labels() = 150
 	elif args.dataset == 'NYUDv2':
-		net_opts['num_labels'] = 40
+		data_loader.num_labels() = 40
 	else:
 		print('NetTest: Error: unrecognized dataset name')
-		
+	'''
+	
 	#TODO probably will neeed more switch cases in future
 	if args.is_eval_mode:
 		net.testing(paths,net_opts)
 	else:
-		net.train_on_all(paths,net_opts)
+		net.training(net_opts,data_loader,args.checkpoint_dir)

@@ -28,8 +28,7 @@ class TrainOpHandler:
 		self._accum_gradients = [tf.Variable(tf.zeros_like(tv.initialized_value()), trainable=False) for tv in trainable_vars]
 		self._accumulate = [self._accum_gradients[i].assign_add(gv[0]) for i, gv in enumerate(self._gradients)]
 		self._apply_grad = optimizer.apply_gradients([(self._accum_gradients[i], gv[1]) for i, gv in enumerate(self._gradients)])
-		with tf.control_dependencies([self._apply_grad]): #ensure we update then clear by calling a single op
-			self._clear_gradients = [tv.assign(tf.zeros_like(tv)) for tv in self._accum_gradients]
+		self._clear_gradients = [tv.assign(tf.zeros_like(tv)) for tv in self._accum_gradients]
 		
 		if net_opts['iter_end_only_training'] > 0:
 			trainable_vars_fresh = tf.get_collection('fresh')
@@ -41,8 +40,7 @@ class TrainOpHandler:
 			self._accum_gradients_fresh = [tf.Variable(tf.zeros_like(tv.initialized_value()), trainable=False) for tv in trainable_vars_fresh]
 			self._accumulate_fresh = [self._accum_gradients_fresh[i].assign_add(gv[0]) for i, gv in enumerate(self._gradients_fresh)]
 			self._apply_grad_fresh = optimizer.apply_gradients([(self._accum_gradients_fresh[i], gv[1]) for i, gv in enumerate(self._gradients_fresh)])
-			with tf.control_dependencies([self._apply_grad_fresh]):
-				self._clear_gradients_fresh = [tv.assign(tf.zeros_like(tv)) for tv in self._accum_gradients_fresh]
+			self._clear_gradients_fresh = [tv.assign(tf.zeros_like(tv)) for tv in self._accum_gradients_fresh]
 		
 		#WARNING: Batch norm ops only updated on end-to-end training. And is weird if you're accumulating gradients
 		#TODO: If you add option for later batch norm, must carefully collect proper update ops here.
@@ -61,11 +59,13 @@ class TrainOpHandler:
 		else:
 			return self._accumulate_fresh
 	
-	def post_batch_op(self,iter):
+	def post_batch_actions(self,iter,sess):
 		if iter >= self._iter_end_only_training:
-			return self._clear_gradients
+			sess.run(self._apply_grad)
+			sess.run(self._clear_gradients)
 		else:
-			return self._clear_gradients_fresh
+			sess.run(self._apply_grad_fresh)
+			sess.run(self._clear_gradients_fresh)
 		
 	def check_gradients(self,iter,sess):
 		for g in self._accum_gradients[-2:] if iter >= self._iter_end_only_training else self._accum_gradients_fresh[-2:]:

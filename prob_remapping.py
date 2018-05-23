@@ -2,7 +2,6 @@
 
 import tensorflow as tf
 import numpy as np
-from csvreadall import *
 import loss_functions
 import os
 
@@ -39,6 +38,7 @@ def conf_remap_loss_and_metrics(map_mat,hist,base_prob,truth,batch_size,epsilon)
 	
 	return (loss,acc,(mapped,mats))
 	
+	
 def remap(map_mat,hist,base_prob,epsilon):
 	#first, construct new mapping matrix
 	map_mat = tf.transpose(map_mat*hist)
@@ -49,6 +49,7 @@ def remap(map_mat,hist,base_prob,epsilon):
 	#print(map_mat.shape.as_list())
 	remapped = tf.transpose(tf.matmul(nmap_mat,tf.transpose(base_prob)))
 	return (remapped,nmap_mat)
+	
 	
 def remap_metrics(out,truth):
 	labels = tf.argmax(out,axis=2)+1

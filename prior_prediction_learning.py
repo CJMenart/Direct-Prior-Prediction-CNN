@@ -6,8 +6,6 @@ import tensorflow as tf
 import os
 import random
 import sys
-import cv2
-import csvreadall as csvr
 import prior_net as net
 from augment_img import *
 import numpy as np
@@ -15,19 +13,19 @@ from copyanything import *
 from print_to_file import *
 from class_frequency import *
 from train_ops import *
-from my_load_mat import *
 from get_latest_model import *
+from data_loader import *
 #turns off annoying warnings about compiling TF for vector instructions
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-DEBUG = True
+DEBUG = False
 # Chris Menart, 1-9-18
 #went back to editing 5-18-18		
 
 #TODO write testing control method
 
 
-#TODO not tested since update
+#TODO OUT OF DATE
 def train_on_clusters(paths,net_opts):
 	"Trains a network on the entire dataset, then recurses into a sub-directory and fine-tunes a copy on each specified cluster within that dataset."
 	
@@ -43,8 +41,8 @@ def train_on_clusters(paths,net_opts):
 	
 		clust_opts = dict(net_opts)
 		clust_paths = dict(paths)
-		clust_dir = os.path.join(paths['checkpoint_dir'],'clust_%d' % clust)
-		clust_paths['checkpoint_dir'] = clust_dir
+		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
+		clust_checkpoint_dir = clust_dir
 		if not os.path.exists(clust_dir):
 			copyanything(global_dir,clust_dir)
 		clust_opts['max_iter'] = net_opts['max_iter']*2
@@ -53,63 +51,33 @@ def train_on_clusters(paths,net_opts):
 		clust_val_img_names = [val_img_names[n] for n in len(val_img_names) if val_clusters[n] == clust]
 		
 		training(clust_paths,clust_opts,clust_train_img_names,clust_val_img_names)
-
-		
-def train_on_all(paths,net_opts):
-	"Wrapper for 'training' to just train once on whole dataset."
-	#TODO: Pull out reading/filetype-specific logic into own function
-	train_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
-	val_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
-
-	training(paths,net_opts,train_img_names,val_img_names)	
 	
-	
-def training(paths,net_opts,train_img_names,val_img_names):
+def training(net_opts,data_loader,checkpoint_dir):
 	"Train the actual network here. Can restart training from checkpoint if stopped."
 	
-	#Settings and paths and stuff			
-	text_log = os.path.join(paths['checkpoint_dir'], "NetworkLog.txt")
-	train_err_log = os.path.join(paths['checkpoint_dir'], "TrainErr.csv")
-	val_err_log = os.path.join(paths['checkpoint_dir'], "val_err.csv")
+	#Paths to text logs
+	text_log = os.path.join(checkpoint_dir, "NetworkLog.txt")
+	train_err_log = os.path.join(checkpoint_dir, "TrainErr.csv")
+	val_err_log = os.path.join(checkpoint_dir, "val_err.csv")
+	
 	double_print("Welcome to prior network training.",text_log)	
 	if net_opts['remapping_loss_weight'] > 0:
-		map_mat = np.array(csvr.readall(paths['map_mat_file']),csvr.READ_FLOAT)
-	
-	double_print("Loading validation images...",text_log)
-
-	#TODO: When you factor out image-getting, factor out pre-loading as well...
-	val_imgs = []
-	val_targets = []
-	val_remap_targets = []
-	val_base_probs = []
-	for v in range(len(val_img_names)):
-		img = cv2.imread(os.path.join(paths['im_dir'], val_img_names[v]))
-		sz = img.shape
-		val_imgs.append(img[np.newaxis,:,:,:])
-		
-		truth = my_load_int_mat(os.path.join(paths['truth_dir'], val_img_names[v][:-3] + 'mat'))		
-		val_targets.append(truth[np.newaxis,:,:])
-		
-		if net_opts['remapping_loss_weight'] > 0:
-			remap_samples = np.array(csvr.readall(os.path.join(paths['remapDir'],val_img_names[v][:-3] + "csv"),csvr.READ_FLOAT))
-			target = remap_samples[:,0]
-			base_probs = remap_samples[:,1:]
-			val_remap_targets.append(target)
-			val_base_probs.append(base_probs)
-			
+		map_mat = data_loader.map_mat()
 	#more debugging
 	if DEBUG:
 		double_print('Example validation item',text_log)
-		double_print(val_imgs[0],text_log)
-		double_print(val_targets[0],text_log)
+		ex_im,ex_truth = data_loader.val_img_and_truth(0)
+		double_print(ex_im,text_log)
+		double_print(ex_truth,text_log)
 	
 	#compute average of classes present for binary loss weights
 	if not net_opts['is_target_distribution'] and net_opts['is_loss_weighted_by_class']:
 		double_print('Computing class frequencies...',text_log)
-		class_freq = class_frequency(paths['truth_dir'],net_opts['num_labels'],train_img_names)
+		class_freq = class_frequency(data_loader)
 		double_print(class_freq,text_log)
 	else:
-		class_freq = np.ones((1,net_opts['num_labels']),dtype=np.float32) #doesn't matter
+		#TODO move this to selecting weighted or unweighted loss function
+		class_freq = np.ones((1,data_loader.num_labels()),dtype=np.float32)/2 #unweight
 	
 	tf.reset_default_graph()
 	
@@ -123,7 +91,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 		sess = tf.InteractiveSession(config=config)
 	
 	#TODO: Move reg down into net when you make a network base class...
-	network = net.PriorNet(net_opts)
+	network = net.PriorNet(net_opts,data_loader.num_labels())
 	best_val_loss = tf.Variable(sys.float_info.max,trainable=False,name="best_val_loss")
 	reg_loss = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 	total_loss = network.loss + reg_loss
@@ -135,11 +103,11 @@ def training(paths,net_opts,train_img_names,val_img_names):
 	
 	#tensorboard inspection
 	summaries = tf.summary.merge_all()
-	summary_writer = tf.summary.FileWriter(paths['checkpoint_dir'],graph=sess.graph)
+	summary_writer = tf.summary.FileWriter(checkpoint_dir,graph=sess.graph)
 	
 	saver = tf.train.Saver()
 	
-	latest_model = get_latest_model(paths['checkpoint_dir'])
+	latest_model = get_latest_model(checkpoint_dir)
 	if latest_model:
 		tf.global_variables_initializer().run()
 		saver.restore(sess,latest_model)
@@ -149,16 +117,15 @@ def training(paths,net_opts,train_img_names,val_img_names):
 		double_print('Creating a new network...',text_log)
 		start = 0
 		tf.global_variables_initializer().run()
-		network.load_weights(paths['weight_file'],sess)
-	model_name = os.path.join(paths['checkpoint_dir'],paths['model_name'])
+		network.load_weights(os.path.join(data_loader.base_fcn_weight_dir(),net_opts['fcn_weight_file']),sess)
+	model_name = os.path.join(checkpoint_dir,net_opts['model_name'])
 		
 	trainable_vars = tf.trainable_variables()	
 	if DEBUG:
 		print("Trainable Variables:")
 		print(trainable_vars)
 	
-	#TODO: Realistically, data fetching should be handled by its own class...any way to leave open option for tfrecord in doing so? Blegh...
-	cur_train_indices = list(range(len(train_img_names)))
+	cur_train_indices = list(range(data_loader.num_train()))
 		
 	#actual training loop
 	for iter in range(start,net_opts['max_iter']):
@@ -171,24 +138,25 @@ def training(paths,net_opts,train_img_names,val_img_names):
 			val_loss = 0
 			val_err = 0
 			val_acc = 0
-			for v_ind in range(len(val_img_names)):
-				feed_dict = {network.inputs:val_imgs[v_ind],
-							network.seg_target:val_targets[v_ind],
-							network.class_frequency: class_freq,
-							network.is_train: False}
+			for v_ind in range(data_loader.num_val()):
+				
+				feed_dict = {network.class_frequency: class_freq, network.is_train: False}
+				img, truth = data_loader.val_img_and_truth(v_ind)
+				feed_dict[network.inputs] = img[np.newaxis,:,:,:]
+				feed_dict[network.seg_target] = truth[np.newaxis,:,:]
 							
 				if net_opts['remapping_loss_weight'] > 0:
-					feed_dict[network.remap_target] = val_remap_targets[v_ind]
-					feed_dict[network.remap_base_prob] = val_base_probs[v_ind]
-					feed_dict[network.map_mat] = map_mat
+					_,feed_dict[network.remap_target] = data_loader.val_img_and_truth(v_ind)
+					feed_dict[network.remap_base_prob] = data_loader.val_semantic_prob(v_ind)
+					feed_dict[network.map_mat] = data_loader.map_mat()
 					
 				loss, err, acc, smry = sess.run([network.loss, network.prior_err, network.seg_acc, summaries], feed_dict=feed_dict)
 				val_loss += loss
 				val_err += err
 				val_acc += acc
-			val_loss = np.mean(val_loss)/len(val_img_names)
-			val_err = np.mean(val_err)/len(val_img_names)
-			val_acc = np.mean(val_acc)/len(val_img_names)
+			val_loss = np.mean(val_loss)/data_loader.num_val()
+			val_err = np.mean(val_err)/data_loader.num_val()
+			val_acc = np.mean(val_acc)/data_loader.num_val()
 			double_print('step %d: val loss %.5f' % (iter, val_loss),text_log)
 			double_print('step %d: val error ~= %.5f' % (iter, val_err),text_log)
 			double_print('step %d: val acc ~= %.5f' % (iter,val_acc),text_log)
@@ -199,7 +167,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 				sess.run([best_val_loss.assign(val_loss)])
 				double_print("NEW VALIDATION BEST",text_log)
 				new_best = True
-			if new_best or iter % 10000 == 0:
+			if new_best or iter % net_opts['iter_per_automatic_backup'] == 0:
 				saver.save(sess, model_name,global_step = iter)
 				
 		batch_size = net_opts['batch_size']
@@ -209,19 +177,16 @@ def training(paths,net_opts,train_img_names,val_img_names):
 		acc = 0
 		for item in range(batch_size):
 			if len(cur_train_indices) == 0:
-				cur_train_indices = list(range(len(train_img_names)))		
+				cur_train_indices = list(range(data_loader.num_train()))	
 			t_ind = cur_train_indices.pop(random.randint(0,len(cur_train_indices)-1))
 			
-			im_name = os.path.join(paths['im_dir'], train_img_names[t_ind])
-			#print(im_name)
-			img = cv2.imread(im_name)
+			img,truth = data_loader.train_img_and_truth(t_ind)
 			sz = img.shape
-			truth = my_load_int_mat(os.path.join(paths['truth_dir'],train_img_names[t_ind][:-3] + 'mat'))			
 			(img,truth) = augment_img(img,truth)
-			#debug
-			double_print('img,truth:',text_log)
-			double_print(img,text_log)
-			double_print(truth,text_log)
+			if DEBUG:
+				double_print('img,truth:',text_log)
+				double_print(img,text_log)
+				double_print(truth,text_log)
 			
 			feed_dict={
 				network.inputs:img[np.newaxis,:,:,:],
@@ -230,13 +195,11 @@ def training(paths,net_opts,train_img_names,val_img_names):
 				network.is_train: True}
 				
 			if net_opts['remapping_loss_weight'] > 0:
-				remap_samples = np.array(csvr.readall(os.path.join(paths['presoftmaxDir'],train_img_names[t_ind][:-3] + "csv")),csvr.READ_FLOAT)
-				truth = remapSamples[:,0]
-				base_probs = remapSamples[:,1:]
-				feed_dict[network.remap_target] = remap_samples
-				feed_dict[network.remap_base_prob] = base_probs
-				feed_dict[network.map_mat_file] = map_mat
+				_,feed_dict[network.remap_target] = data_loader.train_img_and_truth(v_ind)
+				feed_dict[network.remap_base_prob] = data_loader.train_semantic_prob(v_ind)
+				feed_dict[network.map_mat] = data_loader.map_mat()
 							
+			#actual train step
 			_, cur_loss, cur_err,cur_acc = sess.run([train_op_handler.train_op(iter),network.loss,network.prior_err,network.seg_acc], feed_dict=feed_dict)
 			
 			loss += cur_loss
@@ -244,7 +207,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 			acc += cur_acc
 			
 		train_op_handler.check_gradients(iter,sess)
-		sess.run(train_op_handler.post_batch_op(iter))
+		train_op_handler.post_batch_actions(iter,sess)
 		
 		loss = loss/batch_size #avg loss per element, to print
 		err = err/batch_size

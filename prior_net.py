@@ -18,7 +18,7 @@ DEBUG = True
 #WARNING: Must not be called while inside another scope. Until I fix the include just a min bro TODO
 class PriorNet:
 
-	def __init__(self,net_opts):
+	def __init__(self,net_opts,num_labels):
 		self.inputs = tf.placeholder(DAT_TYPE,[None,None,None,3])
 		self.is_train = tf.placeholder(tf.bool,None)
 		# we are loading segmentation maps in case we change this later to be more advanced. Future-proofing. SIGH TODO include option for simple priors to shave off load time?
@@ -26,19 +26,19 @@ class PriorNet:
 		# any other component I can think of would come directly from this label map
 		# as this is only used for binary priors (even then not always?) consider making it internal, some kind of rolling avg
 		self.seg_target = tf.placeholder(tf.int64,[None,None,None]) #batch,width,height
-		self.processed_seg_target = self._expand_target(self.seg_target,net_opts)
+		self.processed_seg_target = self._expand_target(self.seg_target,num_labels)
 		self.prior_target = self._pool_prior_target(self.processed_seg_target,net_opts)
 		#below three are not necessary to feed if you don't use remapping loss or run seg_acc
 		self.remap_target = tf.placeholder(tf.int64,[None,None])
-		self.remap_base_prob = tf.placeholder(DAT_TYPE,[None,None,net_opts['num_labels']])		
-		self.map_mat = tf.placeholder(DAT_TYPE,[net_opts['num_labels'],net_opts['num_labels']])
+		self.remap_base_prob = tf.placeholder(DAT_TYPE,[None,None,num_labels])		
+		self.map_mat = tf.placeholder(DAT_TYPE,[num_labels,num_labels])
 		'''
 		this can just be one if you don't want weighted loss. This idea is that the average loss on any class should be 1, so we assign
 		a greater loss than one to false-positive if it occurs more than half the time, etc. The value passed in should be the 1/2 the loss for false
 		positives, and the false-negative loss is just 2-that.
 		Note that code regularizes b/c according to this scheme if something showed up in every image the penalty for false negative is 0...just sayin'
 		'''
-		self.class_frequency = tf.placeholder(DAT_TYPE,[1,net_opts['num_labels']])
+		self.class_frequency = tf.placeholder(DAT_TYPE,[1,num_labels])
 		
 		self._base_net = BaseFCN(net_opts,self.inputs,self.is_train)
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
@@ -47,7 +47,7 @@ class PriorNet:
 		activation_summary(self._base_net_vectorized,'base_net_vectorized')
 
 
-		self.prior = self._prior_predictor(net_opts)
+		self.prior = self._prior_predictor(net_opts,num_labels)
 		self.direct_prior_loss = self._weighted_prior_loss(net_opts)
 		
 		#What's interesting is that if we didn't have to save and load softmax, but were performing remapping using a model in tensorflow that we ran, this memory limit
@@ -67,7 +67,7 @@ class PriorNet:
 		else:
 			self.prior_err = hamming_err(self.prior,self.prior_target)
 	
-	def _prior_predictor(self,net_opts):
+	def _prior_predictor(self,net_opts,num_labels):
 		#prior predictor here is very simple. Assume network ended in a global average pooling operation and add 1 FC layer, non-linearity
 
 		in_feat = self._base_net_vectorized
@@ -90,7 +90,7 @@ class PriorNet:
 				tf.add_to_collection('fresh',weights)
 				tf.add_to_collection('fresh',biases)
 				
-		out_chann = net_opts['num_labels']	
+		out_chann = num_labels
 		with tf.variable_scope('fc_final') as scope:
 			weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
 			biases = tf.Variable(tf.constant(0.01, shape=[out_chann], dtype=DAT_TYPE),
@@ -134,15 +134,15 @@ class PriorNet:
 	#downsamples the processed 4d target tensor to form a prior. Can form binary or histogram prior
 	def _pool_prior_target(self,target,net_opts):
 		if net_opts['is_target_distribution']:
-			target = tf.reduce_max(target,[1,2])
-		else:
 			target = tf.reduce_mean(target,[1,2])
+		else:
+			target = tf.reduce_max(target,[1,2])
 		return target
 		
 	#expands a 2d map of the correct classes for a tensor and expands to 3d one-hot vectors
 	#tensors go from 3d to 4d--batch dim at beginning
-	def _expand_target(self,target,net_opts): 
-		target = tf.one_hot(target,net_opts['num_labels']+1,dtype=DAT_TYPE,axis=3)
+	def _expand_target(self,target,num_labels): 
+		target = tf.one_hot(target,num_labels+1,dtype=DAT_TYPE,axis=3)
 		target = target[:,:,:,1:]
 		return target
 		

@@ -3,7 +3,6 @@ NOTE: You are required to call augmentation methods here before any changing of 
 
 import numpy as np
 import cv2
-import csvreadall as csvr
 import os
 
 GAMMA_RANGE = [0.5,2]
