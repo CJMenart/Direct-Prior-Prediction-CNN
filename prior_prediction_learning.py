@@ -149,7 +149,7 @@ def training(paths,net_opts,train_img_names,val_img_names):
 		double_print('Creating a new network...',text_log)
 		start = 0
 		tf.global_variables_initializer().run()
-		network.load_weights(paths['weight_file'],sess,net_opts)
+		network.load_weights(paths['weight_file'],sess)
 	model_name = os.path.join(paths['checkpoint_dir'],paths['model_name'])
 		
 	trainable_vars = tf.trainable_variables()	

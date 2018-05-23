@@ -1,14 +1,12 @@
 "Wraps around a base network (ResNet or Inception) and predicts a distribution directly from passed-in image"
 
-from tensorflow.contrib.slim.nets import resnet_v1
-from tensorflow.contrib.slim.nets import resnet_v2
-#also import inception TODO
 import tensorflow as tf
 from activation_summary import *
 import os
 import numpy as np
 from loss_functions import *
 import prob_remapping
+from base_fcn import *
 
 slim = tf.contrib.slim #slim is used by the official TF implementation of ResNet
 DAT_TYPE = tf.float32
@@ -42,44 +40,12 @@ class PriorNet:
 		'''
 		self.class_frequency = tf.placeholder(DAT_TYPE,[1,net_opts['num_labels']])
 		
-		#WARNING: 'is_training' option now actually used--don't give batch sizes of 1. Batch norms insides
+		self._base_net = BaseFCN(net_opts,self.inputs,self.is_train)
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
-		if net_opts['base_net'] == 'resnet_v1':
-			with slim.arg_scope(resnet_v1.resnet_arg_scope()) as scope:
-				resnet_out, _ = resnet_v1.resnet_v1_152(self.inputs,is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train,global_pool=True)
-				if DEBUG:
-					print('resnet_out:')
-					print(resnet_out.shape.as_list())
-				self.base_net = tf.squeeze(resnet_out,[1,2])
-				base_scope = 'resnet_v1_152'
-		elif net_opts['base_net'] == 'resnet_v2':
-			with slim.arg_scope(resnet_v2.resnet_arg_scope()) as scope:
-				resnet_out, _ = resnet_v2.resnet_v2_152(self.inputs,is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train,global_pool=True)
-				if DEBUG:
-					print('resnet_out:')
-					print(resnet_out.shape.as_list())
-				self.base_net = tf.squeeze(resnet_out,[1,2])
-				base_scope = 'resnet_v2_152'
-		elif net_opts['base_net'] == 'inception':
-			with slim.arg_scope(inception_arg_scope()):
-				logits, end_points = inception.inception_v4(self.inputs, num_classes=None, is_training=False if net_opts['is_batchnorm_fixed'] else self.is_train)
-				self.base_net = logits
-				base_scope = 'InceptionV4'
-		else:
-			print('Error: basenet not recognized.')
-			quit()
+		self._base_net_vectorized = tf.reduce_max(self._base_net.out,[1,2])
 		
-		activation_summary(self.base_net)
+		activation_summary(self._base_net_vectorized,'base_net_vectorized')
 
-		#for initializing with pre-trained values
-		#with some abuse of terminology
-		scope = os.path.join(tf.contrib.framework.get_name_scope(), base_scope)
-		#print('scope:')
-		#print(scope)
-		vars_to_restore = slim.get_variables_to_restore(include=[scope])
-		#print('vars_to_restore:')
-		#print(vars_to_restore)
-		self._pretrain_saver = tf.train.Saver(vars_to_restore)
 
 		self.prior = self._prior_predictor(net_opts)
 		self.direct_prior_loss = self._weighted_prior_loss(net_opts)
@@ -104,7 +70,7 @@ class PriorNet:
 	def _prior_predictor(self,net_opts):
 		#prior predictor here is very simple. Assume network ended in a global average pooling operation and add 1 FC layer, non-linearity
 
-		in_feat = self.base_net
+		in_feat = self._base_net_vectorized
 		in_chann = in_feat.shape.as_list()[-1]
 		out_chann = net_opts['hid_layer_width']
 		for lay in range(net_opts['num_hid_layers']):
@@ -144,9 +110,9 @@ class PriorNet:
 		
 			return activation
 		
-	def load_weights(self,init_weight_fname,sess,net_opts):
+	def load_weights(self,init_weight_fname,sess):
 		"Initializes (or re-initializes) the pre-trained base model of the network from file. Should be called after running global initializer and before using."
-		self._pretrain_saver.restore(sess,init_weight_fname)
+		self._base_net.load_weights(init_weight_fname,sess)
 
 	def _weighted_prior_loss(self,net_opts):
 		#specific loss we want to use in the case of binary prior. 
