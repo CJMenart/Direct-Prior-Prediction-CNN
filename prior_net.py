@@ -7,6 +7,7 @@ import numpy as np
 from loss_functions import *
 import prob_remapping
 from base_fcn import *
+from nn_util import *
 
 slim = tf.contrib.slim #slim is used by the official TF implementation of ResNet
 DAT_TYPE = tf.float32
@@ -68,46 +69,26 @@ class PriorNet:
 			self.prior_err = hamming_err(self.prior,self.prior_target)
 	
 	def _prior_predictor(self,net_opts,num_labels):
-		#prior predictor here is very simple. Assume network ended in a global average pooling operation and add 1 FC layer, non-linearity
+		"portion of the network that we add. Very simpe. Assume base_fcn is pooled into something vector-like, add FC layers, non-linearity, other whistles, then cap to number of classes."
 
 		in_feat = self._base_net_vectorized
-		in_chann = in_feat.shape.as_list()[-1]
 		out_chann = net_opts['hid_layer_width']
 		for lay in range(net_opts['num_hid_layers']):
-			with tf.variable_scope('fc_%d' % lay) as scope:
-				weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
-				biases = tf.Variable(tf.constant(0.01, shape=[out_chann], dtype=DAT_TYPE),
-									 trainable=True, name='biases')
-				
-				#TODO: Add batch-norm here. Be a bit of a pain in TF b/c you'd have to add the update ops for those layers to train, but not the other resnet ones...
-				pre_act = tf.matmul(in_feat,weights)
-				pre_act = tf.nn.bias_add(pre_act, biases)
-				activation = tf.nn.relu(pre_act, name='activation')
-				activation = tf.nn.dropout(activation,net_opts['dropout_prob'])
+			with tf.variable_scope('fc_%d' % lay) as scope:			
+				activation = fc_layer(in_feat,out_chann,net_opts,False)
 				in_feat = activation
-				in_chann = in_feat.shape.as_list()[-1]
-				
-				tf.add_to_collection('fresh',weights)
-				tf.add_to_collection('fresh',biases)
 				
 		out_chann = num_labels
 		with tf.variable_scope('fc_final') as scope:
-			weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
-			biases = tf.Variable(tf.constant(0.01, shape=[out_chann], dtype=DAT_TYPE),
-								 trainable=True, name='biases')
-			
-			pre_act = tf.matmul(in_feat,weights)
-			pre_act = tf.nn.bias_add(pre_act, biases)
+
+			activation = fc_layer(in_feat,out_chann,net_opts,True)
 			
 			if net_opts['is_target_distribution']:
-				activation = tf.nn.relu(pre_act, name='activation')
+				activation = tf.nn.relu(activation, name='activation')
 				activation = activation/tf.reduce_sum(activation,-1)
-			else: #assumed that we basically have binary target if not distribution
-				activation = tf.nn.sigmoid(pre_act)
-			
-			tf.add_to_collection('fresh',weights)
-			tf.add_to_collection('fresh',biases)
-		
+			else: #assumed we have binary target if not distribution
+				activation = tf.nn.sigmoid(activation)
+					
 			return activation
 		
 	def load_weights(self,init_weight_fname,sess):
@@ -115,7 +96,7 @@ class PriorNet:
 		self._base_net.load_weights(init_weight_fname,sess)
 
 	def _weighted_prior_loss(self,net_opts):
-		#specific loss we want to use in the case of binary prior. 
+		"specific loss we may want to use in the case of a binary prior."
 		if net_opts['is_target_distribution']:
 			return -1 #TODO ask Mo for good loss. Probably select one of several
 		else:

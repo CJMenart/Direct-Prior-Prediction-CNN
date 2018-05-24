@@ -32,12 +32,12 @@ if __name__ == '__main__':
 	parser.add_argument("--is_loss_weighted_by_class",type=int,default=False)
 	parser.add_argument("--base_net",type=str,default='resnet_v2')
 	parser.add_argument("--is_gpu",type=int,default=True)
-	parser.add_argument("--fcn_weight_file",type=str,default=None)
+	parser.add_argument("--fcn_weight_file",type=str,default='_')
 	
 	#path stuff--something here will probably be required
 	parser.add_argument("--data_loader_type",type=str,default="CVL_2018")
-	parser.add_argument("--base_fcn_weight_dir",type=str,default=None)
-	parser.add_argument("--dataset_dir",type=str,default=None)
+	parser.add_argument("--base_fcn_weight_dir",type=str,default='_')
+	parser.add_argument("--dataset_dir",type=str,default='_')
 	
 	args = parser.parse_args()
 	net_opts = {}

@@ -12,6 +12,7 @@ READ_INT = 1
 READ_STR = 2
 
 #NOTE TO SELF: Share with CVL once has been tested in rest of code and no additional bugs/todo found
+#TODO: Somehow fix this so that there's, like...always a cast to a specific data type, consistently across all filetypes? Not sure if easy.
 
 
 def read_any_mat(fname):
