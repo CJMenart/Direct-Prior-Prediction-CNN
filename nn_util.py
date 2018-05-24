@@ -25,3 +25,19 @@ def fc_layer(in_feat,out_chann,net_opts,is_last_layer=False):
 	tf.add_to_collection('fresh',biases)
 	
 	return activation
+	
+	
+def pool_score_map_to_prior(target,net_opts):
+	"downsamples the processed 4d target tensor to form a prior. Can form binary or histogram prior"
+	if net_opts['is_target_distribution']:
+		target = tf.reduce_mean(target,[1,2])
+	else:
+		target = tf.reduce_max(target,[1,2])
+	return target
+	
+
+def expand_target_2d_to_3d(target,num_labels): 
+	"#expands a 2d map of the correct classes for a tensor and expands to 3d one-hot vectors by which I mean tensors go from 3d to 4d--batch dim is at beginning"
+	target = tf.one_hot(target,num_labels+1,dtype=DAT_TYPE,axis=3)
+	target = target[:,:,:,1:]
+	return target
