@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import h5py
 
+DEBUG = False
 READ_FLOAT = 0
 READ_INT = 1
 READ_STR = 2
@@ -69,7 +70,14 @@ def read_matfile(fname,key=None):
 	except NotImplementedError:
 		with h5py.File(fname,'r') as file:
 			matrix = _extract_by_key_from_matfile(file,key)
-			
+			if DEBUG:
+				print('transposing...')
+			if type(key) is list:
+				matrix = [np.transpose[m] for m in matrix]
+			else:
+				matrix = np.transpose(matrix)
+	if DEBUG:
+		print(np.array(matrix).shape)
 	return matrix
 	
 	

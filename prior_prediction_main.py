@@ -33,6 +33,7 @@ if __name__ == '__main__':
 	parser.add_argument("--base_net",type=str,default='resnet_v2')
 	parser.add_argument("--is_gpu",type=int,default=True)
 	parser.add_argument("--fcn_weight_file",type=str,default='_')
+	parser.add_argument("--img_sizing_method",type=str,default='pad_input')
 	
 	#path stuff--something here will probably be required
 	parser.add_argument("--data_loader_type",type=str,default="CVL_2018")
@@ -72,23 +73,14 @@ if __name__ == '__main__':
 	net_opts['err_thresh'] = 1e-3
 	net_opts['fcn_weight_file'] = args.fcn_weight_file
 	net_opts['iter_per_automatic_backup'] = 10000
+	net_opts['standard_image_size'] = [512,512]
 	
-	#currently unused, may implement later
-	#net_opts['is_im_size_fixed'] = False
-	
-	'''
-	if args.dataset == 'MS_COCO':
-		data_loader.num_labels() = 90
-	elif args.dataset == 'PASCAL_Context':
-		data_loader.num_labels() = 59
-	elif args.dataset == 'ADE20K':
-		data_loader.num_labels() = 150
-	elif args.dataset == 'NYUDv2':
-		data_loader.num_labels() = 40
-	else:
-		print('NetTest: Error: unrecognized dataset name')
-	'''
-	
+	#TODO currently implementing
+	net_opts['img_sizing_method'] = args.img_sizing_method
+	assert(	net_opts['img_sizing_method'] == 'run_img_by_img' or 	#may use to avoid all possible im distortions for ims of different size, but slower
+			net_opts['img_sizing_method'] == 'standard_size' or     #quickest and involves no padding, but may introduce distortions
+			net_opts['img_sizing_method'] == 'pad_input')           #quicker than running image by image, but may mess with batch norm if aspect ratios are crazy different
+			
 	#TODO probably will neeed more switch cases in future
 	if args.is_eval_mode:
 		net.testing(paths,net_opts)

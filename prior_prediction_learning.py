@@ -7,7 +7,6 @@ import os
 import random
 import sys
 import prior_net as net
-from augment_img import *
 import numpy as np
 from copyanything import *
 from print_to_file import *
@@ -15,10 +14,12 @@ from class_frequency import *
 from train_ops import *
 from get_latest_model import *
 from data_loader import *
+import partition_enum
+from build_feed_dict import *
 #turns off annoying warnings about compiling TF for vector instructions
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-DEBUG = False
+DEBUG = True
 # Chris Menart, 1-9-18
 #went back to editing 5-18-18		
 
@@ -53,7 +54,8 @@ def train_on_clusters(paths,net_opts):
 		training(clust_paths,clust_opts,clust_train_img_names,clust_val_img_names)
 	
 def training(net_opts,data_loader,checkpoint_dir):
-	"Train the actual network here. Can restart training from checkpoint if stopped."
+	"Train the actual network here. Can restart training from checkpoint if stopped.\
+	Gnarliest function in the software probably."
 	
 	#Paths to text logs
 	text_log = os.path.join(checkpoint_dir, "NetworkLog.txt")
@@ -66,7 +68,7 @@ def training(net_opts,data_loader,checkpoint_dir):
 	#more debugging
 	if DEBUG:
 		double_print('Example validation item',text_log)
-		ex_im,ex_truth = data_loader.val_img_and_truth(0)
+		ex_im,ex_truth = data_loader.img_and_truth(0,partition_enum.VAL)
 		double_print(ex_im,text_log)
 		double_print(ex_truth,text_log)
 	
@@ -90,7 +92,7 @@ def training(net_opts,data_loader,checkpoint_dir):
 		)
 		sess = tf.InteractiveSession(config=config)
 	
-	#TODO: Move reg down into net when you make a network base class...
+	#TODO: Move reg down into net if/when you make a network base class...
 	network = net.PriorNet(net_opts,data_loader.num_labels())
 	best_val_loss = tf.Variable(sys.float_info.max,trainable=False,name="best_val_loss")
 	reg_loss = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
@@ -125,11 +127,10 @@ def training(net_opts,data_loader,checkpoint_dir):
 		print("Trainable Variables:")
 		print(trainable_vars)
 	
-	cur_train_indices = list(range(data_loader.num_train()))
+	cur_train_indices = []
 		
-	#actual training loop
 	for iter in range(start,net_opts['max_iter']):
-				
+		batch_size = net_opts['batch_size']
 		if iter == net_opts['iter_end_only_training']:
 			double_print('Switching to end-to-end training.',text_log)
 				
@@ -138,25 +139,22 @@ def training(net_opts,data_loader,checkpoint_dir):
 			val_loss = 0
 			val_err = 0
 			val_acc = 0
-			for v_ind in range(data_loader.num_val()):
-				
-				feed_dict = {network.class_frequency: class_freq, network.is_train: False}
-				img, truth = data_loader.val_img_and_truth(v_ind)
-				feed_dict[network.inputs] = img[np.newaxis,:,:,:]
-				feed_dict[network.seg_target] = truth[np.newaxis,:,:]
+			step_sz = 1 if net_opts['img_sizing_method']=='run_img_by_img' else batch_size
+			num_val = data_loader.num_data_items(partition_enum.VAL)
+			if DEBUG:
+				print('num_val')
+				print(num_val)
+			for v_ind in range(0,num_val,step_sz):
 							
-				if net_opts['remapping_loss_weight'] > 0:
-					_,feed_dict[network.remap_target] = data_loader.val_img_and_truth(v_ind)
-					feed_dict[network.remap_base_prob] = data_loader.val_semantic_prob(v_ind)
-					feed_dict[network.map_mat] = data_loader.map_mat()
-					
+				feed_dict = build_feed_dict(data_loader,network,range(v_ind,min(num_val,v_ind+step_sz)),partition_enum.VAL,net_opts)
 				loss, err, acc, smry = sess.run([network.loss, network.prior_err, network.seg_acc, summaries], feed_dict=feed_dict)
 				val_loss += loss
 				val_err += err
 				val_acc += acc
-			val_loss = np.mean(val_loss)/data_loader.num_val()
-			val_err = np.mean(val_err)/data_loader.num_val()
-			val_acc = np.mean(val_acc)/data_loader.num_val()
+				
+			val_loss = np.mean(val_loss)/data_loader.num_data_items(partition_enum.VAL)
+			val_err = np.mean(val_err)/data_loader.num_data_items(partition_enum.VAL)
+			val_acc = np.mean(val_acc)/data_loader.num_data_items(partition_enum.VAL)
 			double_print('step %d: val loss %.5f' % (iter, val_loss),text_log)
 			double_print('step %d: val error ~= %.5f' % (iter, val_err),text_log)
 			double_print('step %d: val acc ~= %.5f' % (iter,val_acc),text_log)
@@ -169,42 +167,29 @@ def training(net_opts,data_loader,checkpoint_dir):
 				new_best = True
 			if new_best or iter % net_opts['iter_per_automatic_backup'] == 0:
 				saver.save(sess, model_name,global_step = iter)
-				
-		batch_size = net_opts['batch_size']
-			
-		loss = 0
-		err = 0
-		acc = 0
+		
+		#REST OF LOOP: TRAINING STEP
+		t_inds = []
 		for item in range(batch_size):
 			if len(cur_train_indices) == 0:
-				cur_train_indices = list(range(data_loader.num_train()))	
-			t_ind = cur_train_indices.pop(random.randint(0,len(cur_train_indices)-1))
-			
-			img,truth = data_loader.train_img_and_truth(t_ind)
-			sz = img.shape
-			(img,truth) = augment_img(img,truth)
-			if DEBUG:
-				double_print('img,truth:',text_log)
-				double_print(img,text_log)
-				double_print(truth,text_log)
-			
-			feed_dict={
-				network.inputs:img[np.newaxis,:,:,:],
-				network.seg_target: truth[np.newaxis,:,:],
-				network.class_frequency: class_freq,
-				network.is_train: True}
-				
-			if net_opts['remapping_loss_weight'] > 0:
-				_,feed_dict[network.remap_target] = data_loader.train_img_and_truth(v_ind)
-				feed_dict[network.remap_base_prob] = data_loader.train_semantic_prob(v_ind)
-				feed_dict[network.map_mat] = data_loader.map_mat()
-							
+				cur_train_indices = list(range(data_loader.num_data_items(partition_enum.TRAIN)))	
+			t_inds.append(cur_train_indices.pop(random.randint(0,len(cur_train_indices)-1)))
+		
+		if net_opts['img_sizing_method']=='run_img_by_img':
+			loss = 0
+			err = 0
+			acc = 0
+			for t_ind in t_inds:
+				feed_dict = build_feed_dict(data_loader,network,[t_ind],partition_enum.TRAIN,net_opts)
+				#actual train step
+				_, cur_loss, cur_err,cur_acc = sess.run([train_op_handler.train_op(iter),network.loss,network.prior_err,network.seg_acc], feed_dict=feed_dict)
+				loss += cur_loss
+				err += cur_err
+				acc += cur_acc
+		else:
+			feed_dict = build_feed_dict(data_loader,network,t_inds,partition_enum.TRAIN,net_opts)
 			#actual train step
-			_, cur_loss, cur_err,cur_acc = sess.run([train_op_handler.train_op(iter),network.loss,network.prior_err,network.seg_acc], feed_dict=feed_dict)
-			
-			loss += cur_loss
-			err += cur_err
-			acc += cur_acc
+			_, loss, err,acc = sess.run([train_op_handler.train_op(iter),network.loss,network.prior_err,network.seg_acc], feed_dict=feed_dict)			
 			
 		train_op_handler.check_gradients(iter,sess)
 		train_op_handler.post_batch_actions(iter,sess)

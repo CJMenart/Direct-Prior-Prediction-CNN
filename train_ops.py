@@ -9,12 +9,10 @@ DEBUG = False
 class TrainOpHandler:
 	"Will manage tensorflow ops needed for training model, given your settings. After constructing you should run train_op() when passing in new data, and post_batch_op() after every batch."
 
-	#TODO: Wonder whether we need to do something fancy so that everything is single-point-of-control when we're able to handle batching all at once versus accumulating...
 	def __init__(self,net_opts,loss):
 
 		optimizer = optimizer_from_string(net_opts)
 		
-		#TODO: Add option for normal large-batching b/c I don't think it matters here (though will require padding BS...) maybe factor some of this out into new function? Only potential issue is if padding-to-standardize messes with batch norm, and that will require investigation.
 		trainable_vars = tf.trainable_variables()	
 		self._gradients = optimizer.compute_gradients(loss,var_list=trainable_vars)
 		#For debugging: useful if you get a gradient that's 'None'

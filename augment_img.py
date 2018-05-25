@@ -4,10 +4,26 @@ NOTE: You are required to call augmentation methods here before any changing of 
 import numpy as np
 import cv2
 import os
+from img_util import resize_ratio
 
 GAMMA_RANGE = [0.5,2]
 AREA_RANGE = [200*200,600*600] 
 LB_SCALE_SET = [0.7,0.8,0.9,1.0,1.1,1.2,1.3]
+
+
+def augment_no_size_change(img,truth=None):
+	"augments by flipping, gamma scaling."
+	
+	#flipping
+	if np.random.randint(0,2) == 0:
+		img = np.fliplr(img)
+		if truth is not None:
+			truth = np.fliplr(truth)
+		
+	#lighting augmentation
+	img = gamma_correction(img,np.random.uniform(GAMMA_RANGE[0],GAMMA_RANGE[1]))
+
+	return (img,truth)
 
 
 def augment_LB(img,truth=None):
@@ -53,14 +69,6 @@ def augment_img(img,truth=None,fixed_sz=None):
 
 	return (img,truth)
 
-	
-def resize_ratio(img,ratio,truth=None):
-	size = img.shape
-	img = cv2.resize(img, ( int(round(size[1]*ratio)), int(round(size[0]*ratio))))
-	if truth is not None:
-		truth = cv2.resize(truth,(int(round(size[1]*ratio)), int(round(size[0]*ratio))),interpolation=cv2.INTER_NEAREST)
-	return (img,truth)
-	
 	
 def gamma_correction(img, correction):
     img = img/255.0
