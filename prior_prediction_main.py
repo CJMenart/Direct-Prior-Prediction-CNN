@@ -73,7 +73,8 @@ if __name__ == '__main__':
 	net_opts['err_thresh'] = 1e-3
 	net_opts['fcn_weight_file'] = args.fcn_weight_file
 	net_opts['iter_per_automatic_backup'] = 10000
-	net_opts['standard_image_size'] = [512,512]
+	#resnet works best for dense prediction with size C*32 + 1, according to code comments
+	net_opts['standard_image_size'] = [321,321]
 	
 	#TODO currently implementing
 	net_opts['img_sizing_method'] = args.img_sizing_method
