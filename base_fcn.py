@@ -21,52 +21,20 @@ class BaseFCN:
 	After construction, these nets will not have their pre-trained weights. You need to call load_weights after running global initialization to initialize them with pretrained weights."
 	def __init__(self,net_opts,inputs,is_train):
 		#WARNING: don't give batch sizes of 1 if batch norm active
-		
-		if net_opts['base_net'] == 'resnet_v1':
-			with slim.arg_scope(resnet_v1.resnet_arg_scope()) as scope:
-				inputs = _vgg_preprocess(inputs)
-				base_net, _ = resnet_v1.resnet_v1_152(inputs,is_training=False if net_opts['is_batchnorm_fixed'] else is_train,global_pool=False)
-				if DEBUG:
-					print('resnet_out:')
-					print(base_net.shape.as_list())
-				
-				base_scope = 'resnet_v1_152'
-		elif net_opts['base_net'] == 'resnet_v2':
-			with slim.arg_scope(resnet_v2.resnet_arg_scope()) as scope:
-				inputs = _vgg_preprocess(inputs)
-				base_net, _ = resnet_v2.resnet_v2_152(inputs,is_training=False if net_opts['is_batchnorm_fixed'] else is_train,global_pool=False)
-				if DEBUG:
-					print('resnet_out:')
-					print(base_net.shape.as_list())
-				base_scope = 'resnet_v2_152'
-		elif net_opts['base_net'] == 'inception_v3':
-			#WARNING: is_train for inception controls not just batch norm but dropout. So it's a little awkward. We may need more functionality here later TODO
-
-			'''
-			TODO add inception preprocessing: https://github.com/tensorflow/models/blob/master/research/slim/preprocessing/preprocessing_factory.py
+		#This line counts on the order of execution inside tf.cond because I'm a bad programmer
+		base_net = tf.cond(is_train,lambda: _build_base_net(inputs,net_opts,True), lambda: _build_base_net(inputs,net_opts,False,True))
 			
-			#WARNING untested. Not sure I fully understand slim scopes yet
-			base_scope = 'InceptionV3'
-			with slim.arg_scope(inception.inception_v3_arg_scope()) as scope:
-				with slim.variable_scope(scope, base_scope, [inputs, None], reuse=False) as scope:
-					with slim.arg_scope([layers_lib.batch_norm, layers_lib.dropout], is_training=is_training):
-						base_net, _ = inception_v3_base(inputs,scope=scope)
-			'''
-
-		elif net_opts['base_net'] == 'nothing':
-			# a nothing for debugging purposes
-			base_net = inputs
-			base_scope = None
-		else:
-			raise Exception("basenet name not recognized")
-			
-		if base_scope:
+		if net_opts['base_net'] != 'nothing':
 			#for initializing with pre-trained values
-			scope = ''.join([tf.contrib.framework.get_name_scope(), '/', base_scope])
+			if tf.contrib.framework.get_name_scope():
+				scope = ''.join([tf.contrib.framework.get_name_scope(), '/', net_opts['base_net']])
+			else:
+				scope = net_opts['base_net']
 			if DEBUG:
 				print('scope:')
 				print(scope)
 			vars_to_restore = slim.get_variables_to_restore(include=[scope])
+			#vars_to_restore = slim.get_variables_to_restore()
 			if DEBUG:
 				print('vars_to_restore:')
 				print(vars_to_restore)
@@ -86,6 +54,46 @@ def _vgg_preprocess(inputs):
 	return inputs - [[[[_VGG_R_MEAN,_VGG_G_MEAN,_VGG_B_MEAN]]]]
 
 
+def _build_base_net(inputs,net_opts,is_training,reuse=None):
+	"return a net from slim research nets. is_training must be an actual boolean, not a tensor, which is why we're abstracting this out."
+	if net_opts['base_net'] == 'resnet_v1_152':
+		with slim.arg_scope(resnet_v1.resnet_arg_scope()) as scope:
+			inputs = _vgg_preprocess(inputs)
+			base_net, _ = resnet_v1.resnet_v1_152(inputs,is_training=False if net_opts['is_batchnorm_fixed'] else is_training,global_pool=False,reuse=reuse)
+			if DEBUG:
+				print('resnet_out:')
+				print(base_net.shape.as_list())
+			
+	elif net_opts['base_net'] == 'resnet_v2_152':
+		with slim.arg_scope(resnet_v2.resnet_arg_scope()) as scope:
+			inputs = _vgg_preprocess(inputs)
+			base_net, _ = resnet_v2.resnet_v2_152(inputs,is_training=False if net_opts['is_batchnorm_fixed'] else is_training,global_pool=False,reuse=reuse)
+			if DEBUG:
+				print('resnet_out:')
+				print(base_net.shape.as_list())
+	elif net_opts['base_net'] == 'inception_v3':
+		#WARNING: is_train for inception controls not just batch norm but dropout. So it's a little awkward. We may need more functionality here later TODO
+
+		'''
+		TODO add inception preprocessing: https://github.com/tensorflow/models/blob/master/research/slim/preprocessing/preprocessing_factory.py
+		
+		#WARNING untested. Not sure I fully understand slim scopes yet
+		base_scope = 'InceptionV3'
+		with slim.arg_scope(inception.inception_v3_arg_scope()) as scope:
+			with slim.variable_scope(scope, base_scope, [inputs, None], reuse=False) as scope:
+				with slim.arg_scope([layers_lib.batch_norm, layers_lib.dropout], is_training=is_training):
+					base_net, _ = inception_v3_base(inputs,scope=scope)
+		'''
+
+	elif net_opts['base_net'] == 'nothing':
+		# a nothing for debugging purposes
+		base_net = inputs
+	else:
+		raise Exception("basenet name not recognized")
+	
+	return base_net
+
+		
 def test_base_fcn(net_name,img_fnames,weight_fname):
 	"Quick effort to test the base fcns and figure out what preprocessing is appropriate--isn't well documented."
 	inputs = tf.placeholder(tf.float32,[None,None,None,3])

@@ -34,6 +34,7 @@ if __name__ == '__main__':
 	parser.add_argument("--is_gpu",type=int,default=True)
 	parser.add_argument("--fcn_weight_file",type=str,default='_')
 	parser.add_argument("--img_sizing_method",type=str,default='pad_input')
+	parser.add_argument("--is_fc_batchnorm",type=int,default=False)
 	
 	#path stuff--something here will probably be required
 	parser.add_argument("--data_loader_type",type=str,default="CVL_2018")
@@ -72,6 +73,7 @@ if __name__ == '__main__':
 	net_opts['is_gpu'] = args.is_gpu
 	net_opts['err_thresh'] = 1e-3
 	net_opts['fcn_weight_file'] = args.fcn_weight_file
+	net_opts['is_fc_batchnorm'] = args.is_fc_batchnorm
 	net_opts['iter_per_automatic_backup'] = 10000
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
 	net_opts['standard_image_size'] = [321,321]

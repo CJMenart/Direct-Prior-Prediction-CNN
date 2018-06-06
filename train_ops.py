@@ -3,7 +3,7 @@
 import tensorflow as tf
 import numpy as np
 from optimizer_from_string import * 
-DEBUG = False
+DEBUG = True
 
 
 class TrainOpHandler:
@@ -18,7 +18,7 @@ class TrainOpHandler:
 		#For debugging: useful if you get a gradient that's 'None'
 		if DEBUG:
 			print('Gradients:')
-			for gv in enumerate(gradients):
+			for gv in enumerate(self._gradients):
 				print(gv)
 			print('End of Gradients.')
 		if net_opts['is_clipped_gradients']:
@@ -43,12 +43,18 @@ class TrainOpHandler:
 		#WARNING: Batch norm ops only updated on end-to-end training. And is weird if you're accumulating gradients
 		#TODO: If you add option for later batch norm, must carefully collect proper update ops here.
 		update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-		update_ops = tf.group(*update_ops)
+		if DEBUG:
+			print('update-ops:')
+			print([op.name for op in update_ops])
+		all_updates = tf.group(*update_ops)
 		if DEBUG:
 			print('batch-norm updates:')
 			print(update_ops)
-		self._accumulate = tf.group(*self._accumulate, update_ops)
-
+		self._accumulate = tf.group(*self._accumulate, all_updates)
+		
+		fresh_updates = tf.group(*[op for op in update_ops if 'fcbn' in op.name])
+		self._accumulate_fresh = tf.group(*self._accumulate_fresh, fresh_updates)
+		
 		self._iter_end_only_training = net_opts['iter_end_only_training']
 		
 	def train_op(self,iter):
