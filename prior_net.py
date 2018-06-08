@@ -101,7 +101,8 @@ class PriorNet:
 		if net_opts['is_target_distribution']:
 			if net_opts['is_loss_weighted_by_class']:
 				warnings.warn('full cross-entropy loss on distribution should not/will not be weighted by class frequency.')
-			raise NotImplementedError #TODO ask Mo for good loss. Probably select one of several
+			#TODO options for various loss
+			return kl_divergence_loss(self.prior,self.prior_target,net_opts['epsilon'])
 		else:
 			#weighted cross-entropy loss. OR not-weighted cross-entropy loss
 			if net_opts['is_loss_weighted_by_class']:

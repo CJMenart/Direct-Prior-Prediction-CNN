@@ -8,6 +8,7 @@ from cvl_2018_data_loader import *
 
 #There is one required positional paramter, the directory to save checkpoints in.
 #NOTE: intean command-line arguments are integers here--there's no great way to do it with argparse.
+#TODO: Way to have lower learning rate for base fcn
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("checkpoint_dir")
@@ -30,7 +31,7 @@ if __name__ == '__main__':
 	parser.add_argument("--num_hid_layers",type=int,default=1)
 	parser.add_argument("--is_target_distribution",type=int,default=False)
 	parser.add_argument("--is_loss_weighted_by_class",type=int,default=False)
-	parser.add_argument("--base_net",type=str,default='resnet_v2')
+	parser.add_argument("--base_net",type=str,default='resnet_v1_152')
 	parser.add_argument("--is_gpu",type=int,default=True)
 	parser.add_argument("--fcn_weight_file",type=str,default='_')
 	parser.add_argument("--img_sizing_method",type=str,default='pad_input')
@@ -78,7 +79,6 @@ if __name__ == '__main__':
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
 	net_opts['standard_image_size'] = [321,321]
 	
-	#TODO currently implementing
 	net_opts['img_sizing_method'] = args.img_sizing_method
 	assert(	net_opts['img_sizing_method'] == 'run_img_by_img' or 	#may use to avoid all possible im distortions for ims of different size, but slower
 			net_opts['img_sizing_method'] == 'standard_size' or     #quickest and involves no padding, but may introduce distortions

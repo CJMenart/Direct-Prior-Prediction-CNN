@@ -5,6 +5,8 @@ import numpy as np
 from optimizer_from_string import * 
 DEBUG = True
 
+#TODO: I think I can decouple this from other behavior by making it be, like, you pass in any number of collections for it to build optimizers for,
+#and then to run ops simply pass in any collections you want to use.
 
 class TrainOpHandler:
 	"Will manage tensorflow ops needed for training model, given your settings. After constructing you should run train_op() when passing in new data, and post_batch_op() after every batch."
@@ -40,8 +42,7 @@ class TrainOpHandler:
 			self._apply_grad_fresh = optimizer.apply_gradients([(self._accum_gradients_fresh[i], gv[1]) for i, gv in enumerate(self._gradients_fresh)])
 			self._clear_gradients_fresh = [tv.assign(tf.zeros_like(tv)) for tv in self._accum_gradients_fresh]
 		
-		#WARNING: Batch norm ops only updated on end-to-end training. And is weird if you're accumulating gradients
-		#TODO: If you add option for later batch norm, must carefully collect proper update ops here.
+		#possibly could get all update ops that were added to same collection you get variables from?
 		update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 		if DEBUG:
 			print('update-ops:')

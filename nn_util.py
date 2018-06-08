@@ -5,10 +5,10 @@ import numpy as np
 #TODO conv layer
 DAT_TYPE = tf.float32
 
-#TODO batch norm? Pull out of net_opts probably
+#TODO add batch norm updates to fresh collection by getting current scope--useful for reducing coupling in future
 def fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
 	in_chann = in_feat.shape.as_list()[-1]
-	weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.			truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
+	weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
 	biases = tf.Variable(tf.constant(0.01, shape=[out_chann], dtype=DAT_TYPE),
 			 trainable=True, name='biases')
 		

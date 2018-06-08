@@ -12,6 +12,8 @@ def optimizer_from_string(net_opts):
 	elif net_opts['optimizer_type'] == 'Yellowfin':
 		raise Exception('Yellowfin not implemented.')
 		#optimizer = yellowfin.YFOptimizer(learning_rate=1e-3)
+	elif net_opts['optimizer_type'] == 'Adagrad':
+		optimizer = tf.train.AdagradOptimizer(net_opts['learn_rate'])
 	else:
 		raise Exception('Unrecognized optimizer type.')
 		return -1

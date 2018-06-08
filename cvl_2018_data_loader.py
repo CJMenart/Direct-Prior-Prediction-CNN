@@ -52,10 +52,7 @@ class CVL2018DataLoader(IDataLoader):
 			
 	def num_labels(self):
 		return self._num_labels
-	
-	def num_test(self):
-		return self._num_test
-	
+		
 	def num_data_items(self,partition):
 		if partition == partition_enum.TRAIN:
 			return self._num_train
@@ -74,6 +71,7 @@ class CVL2018DataLoader(IDataLoader):
 	def map_mat(self):
 		raise NotImplementedError
 		
+	#TODO: Name too similar to another function
 	def _img_and_truth(self,ind,subfolder,prefix):
 		img_fname = os.path.join(self._dataset_dir,subfolder,'%s_%06d_img.png' % (prefix,ind+1))
 		img = cv2.imread(img_fname)

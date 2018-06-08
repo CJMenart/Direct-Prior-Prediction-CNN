@@ -32,6 +32,10 @@ def weighted_cross_entropy_loss(out,truth_vec,class_frequency,epsilon):
 	return loss
 
 	
+def kl_divergence_loss(out,truth_vec,epsilon):
+	return tf.reduce_sum(out*tf.log(out/tf.minimum(1.0,truth_vec+epsilon)))
+	
+	
 def segmentation_accuracy(score_map,target,predict0):
 	"determine the accuracy of a semantic segmentation for an image. Set predict0 to true iff you are included the class 0."
 	#target is an integer map
