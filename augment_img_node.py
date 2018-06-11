@@ -69,3 +69,26 @@ def test_aug(dataset_dir):
 		ax2.imshow(np.squeeze(truth[0,:,:]))
 		plt.show()
 		
+def size_imgs(imgs,truths,net_opts):
+	"Size-related preprocessing." 
+	if len(imgs) == 1:
+		return (imgs,truths) #no need to alter single image
+	elif net_opts['img_sizing_method'] == 'standard_size':
+		imgs = tf.image.resize_images(imgs,net_opts['standard_image_size'],align_corners=True)
+		truths = tf.squeeeze(tf.image.resize_images(tf.expand_dims(truths,3),net_opts['standard_image_size'],align_corners=True,method=ResizeMethod.NEAREST_NEIGHBOR), axis=3)
+		
+	elif net_opts['img_sizing_method'] == 'pad_input':
+		raise NotImplementedError
+		
+		#TODO get augmentation and sizing back into actual pipeline...
+		pad_size = net_opts['standard_image_size']
+		for i in range(len(imgs)):
+			ratio = np.asscalar(np.min(np.array(pad_size)/imgs[i].shape[:2]))
+			if DEBUG:
+				print('resize ratio for padded input:')
+				print(ratio)
+			imgs[i],truths[i] = resize_ratio(imgs[i],ratio,truths[i])
+			imgs[i],truths[i] = pad_to_size(imgs[i],pad_size,truths[i])
+	else:
+		raise Exception('Not sure how to handle image size.')
+		
