@@ -95,9 +95,4 @@ class TrainOpHandler:
 					print('gradients:',text_log)
 					print(grad,text_log)
 
-			for t in trainableVars:
-				var = sess.run(t,feed_dict={})
-				print('trainable var:')
-				print(var)
-
 				

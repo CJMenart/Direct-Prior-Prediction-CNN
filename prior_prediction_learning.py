@@ -30,6 +30,9 @@ DEBUG = True
 def train_on_clusters(paths,net_opts):
 	"Trains a network on the entire dataset, then recurses into a sub-directory and fine-tunes a copy on each specified cluster within that dataset."
 	
+	#WARNING When training a new clusters, you must call 	tf.reset_default_graph()
+	#to reset the graph. This means you will need to construct a new data loader each time
+	
 	#global train
 	train_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
 	val_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
@@ -80,9 +83,7 @@ def training(net_opts,data_loader,checkpoint_dir):
 	else:
 		#TODO move this to selecting weighted or unweighted loss function
 		class_freq = np.ones((1,data_loader.num_labels()),dtype=np.float32)/2 #unweight
-	
-	tf.reset_default_graph()
-	
+		
 	if net_opts['is_gpu']:
 		sess = tf.InteractiveSession()
 	else:
@@ -92,8 +93,13 @@ def training(net_opts,data_loader,checkpoint_dir):
 		)
 		sess = tf.InteractiveSession(config=config)
 	
-	#TODO: Move reg down into net if/when you make a network base class...
-	network = net.PriorNet(net_opts,data_loader.num_labels())
+	#inputs = tf.placeholder(DAT_TYPE,[None,None,None,3])
+	is_train = tf.placeholder(tf.bool,None)
+	#seg_target = tf.placeholder(tf.int64,[None,None,None]) #batch,width,height
+	
+	#TODO: Move reg loss down into net if/when you make a network base class...
+	network = net.PriorNet(net_opts,data_loader.num_labels(),data_loader.inputs(),data_loader.seg_target(),is_train,class_frequency=class_freq)
+	
 	best_val_loss = tf.Variable(sys.float_info.max,trainable=False,name="best_val_loss")
 	reg_loss = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 	total_loss = network.loss + reg_loss
@@ -127,8 +133,6 @@ def training(net_opts,data_loader,checkpoint_dir):
 		print("Trainable Variables:")
 		print(trainable_vars)
 	
-	cur_train_indices = []
-		
 	for iter in range(start,net_opts['max_iter']):
 		batch_size = net_opts['batch_size']
 		if iter == net_opts['iter_end_only_training']:
@@ -145,8 +149,10 @@ def training(net_opts,data_loader,checkpoint_dir):
 				print('num_val')
 				print(num_val)
 			for v_ind in range(0,num_val,step_sz):
-							
-				feed_dict = build_feed_dict(data_loader,network,range(v_ind,min(num_val,v_ind+step_sz)),partition_enum.VAL,net_opts)
+				
+				feed_dict = data_loader.feed_dict(partition_enum.VAL,batch_size=batch_size)	
+				feed_dict[is_train] = False				
+				#feed_dict = build_feed_dict(data_loader,network,range(v_ind,min(num_val,v_ind+step_sz)),partition_enum.VAL,net_opts)
 				loss, err, acc, smry = sess.run([network.loss, network.prior_err, network.seg_acc, summaries], feed_dict=feed_dict)
 				val_loss += loss
 				val_err += err
@@ -169,25 +175,23 @@ def training(net_opts,data_loader,checkpoint_dir):
 				saver.save(sess, model_name,global_step = iter)
 		
 		#REST OF LOOP: TRAINING STEP
-		t_inds = []
-		for item in range(batch_size):
-			if len(cur_train_indices) == 0:
-				cur_train_indices = list(range(data_loader.num_data_items(partition_enum.TRAIN)))	
-			t_inds.append(cur_train_indices.pop(random.randint(0,len(cur_train_indices)-1)))
-		
 		if net_opts['img_sizing_method']=='run_img_by_img':
 			loss = 0
 			err = 0
 			acc = 0
-			for t_ind in t_inds:
-				feed_dict = build_feed_dict(data_loader,network,[t_ind],partition_enum.TRAIN,net_opts)
+			for t_ind in range(batch_size):
+				#feed_dict = build_feed_dict(data_loader,network,[t_ind],partition_enum.TRAIN,net_opts)
+				feed_dict = data_loader.feed_dict(partition_enum.TRAIN,batch_size=1)
+				feed_dict[is_train] = True
 				#actual train step
 				_, cur_loss, cur_err,cur_acc = sess.run([train_op_handler.train_op(iter),network.loss,network.prior_err,network.seg_acc], feed_dict=feed_dict)
 				loss += cur_loss
 				err += cur_err
 				acc += cur_acc
 		else:
-			feed_dict = build_feed_dict(data_loader,network,t_inds,partition_enum.TRAIN,net_opts)
+			feed_dict = data_loader.feed_dict(partition_enum.TRAIN,batch_size=batch_size)				
+			feed_dict[is_train] = True
+			#feed_dict = build_feed_dict(data_loader,network,t_inds,partition_enum.TRAIN,net_opts)
 			#actual train step
 			_, loss, err,acc = sess.run([train_op_handler.train_op(iter),network.loss,network.prior_err,network.seg_acc], feed_dict=feed_dict)			
 			
