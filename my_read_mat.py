@@ -73,7 +73,7 @@ def read_matfile(fname,key=None):
 			if DEBUG:
 				print('transposing...')
 			if type(key) is list:
-				matrix = [np.transpose(m) for m in matrix]
+				matrix = [np.transpose[m] for m in matrix]
 			else:
 				matrix = np.transpose(matrix)
 	if DEBUG:

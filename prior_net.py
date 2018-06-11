@@ -14,25 +14,40 @@ slim = tf.contrib.slim #slim is used by the official TF implementation of ResNet
 DAT_TYPE = tf.float32
 DEBUG = True
 
-#TODO: Make nets inherit from a 'net' class with certain public things exposed?
+#TODO: Make nets inherit from a 'net' class with certain public things exposed
 
 
+#WARNING: Must not be called while inside another scope. Until I fix the include just a min bro TODO
 class PriorNet:
 
-	def __init__(self,net_opts,num_labels,inputs,seg_target,is_train,class_frequency=None,remap_target=None,remap_base_prob=None,map_mat=None):
+	def __init__(self,net_opts,num_labels):
+		self.inputs = tf.placeholder(DAT_TYPE,[None,None,None,3])
+		self.is_train = tf.placeholder(tf.bool,None)
+		# we are loading segmentation maps in case we change this later to be more advanced. Future-proofing. SIGH TODO include option for simple priors to shave off load time?
+		# this should be sufficient for computing prior targets. All 'black box' targets will be computed using actual remapping, so 
+		# any other component I can think of would come directly from this label map
+		# as this is only used for binary priors (even then not always?) consider making it internal, some kind of rolling avg
+		self.seg_target = tf.placeholder(tf.int64,[None,None,None]) #batch,width,height
+		self.processed_seg_target = expand_target_2d_to_3d(self.seg_target,num_labels)
+		self.prior_target = pool_score_map_to_prior(self.processed_seg_target,net_opts)
+		#below three are not necessary to feed if you don't use remapping loss or run seg_acc
+		self.remap_target = tf.placeholder(tf.int64,[None,None])
+		self.remap_base_prob = tf.placeholder(DAT_TYPE,[None,None,num_labels])		
+		self.map_mat = tf.placeholder(DAT_TYPE,[num_labels,num_labels])
+		'''
+		this can just be one if you don't want weighted loss. This idea is that the average loss on any class should be 1, so we assign
+		a greater loss than one to false-positive if it occurs more than half the time, etc. The value passed in should be the 1/2 the loss for false
+		positives, and the false-negative loss is just 2-that.
+		Note that code regularizes b/c according to this scheme if something showed up in every image the penalty for false negative is 0...just sayin'
+		'''
+		self.class_frequency = tf.placeholder(DAT_TYPE,[1,num_labels])
 		
-		# we are loading segmentation maps and computing targets from them in case we change this later to be more advanced. Future-proofing. Shouldn't be a performance hit
-		#remap_target, remap_base_prob, map_mat are not necessary to feed if you don't use remapping loss or run seg_acc
-		
-		self.processed_seg_target = expand_target_2d_to_3d(seg_target,num_labels)
-		self.prior_target = pool_score_map_to_prior(self.processed_seg_target,net_opts)	
-		self.class_frequency = class_frequency
-		
-		self._base_net = BaseFCN(net_opts,inputs,is_train)
+		self._base_net = BaseFCN(net_opts,self.inputs,self.is_train)
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
 		self._base_net_vectorized = tf.reduce_max(self._base_net.out,[1,2])
 		
 		activation_summary(self._base_net_vectorized,'base_net_vectorized')
+
 
 		self.prior = self._prior_predictor(net_opts,num_labels)
 		self.direct_prior_loss = self._prior_loss(net_opts)
@@ -41,7 +56,7 @@ class PriorNet:
 		#wouldn't really exist. When we're loading off disk, we have to use 100-pixel examples, but we could remap the whole thing with an integrated model, it's much faster.
 		#but right now we're refining a matconvnet model...still, keep this in mind for future
 		if net_opts['remapping_loss_weight'] > 0:
-			self.remapping_loss,self.seg_acc,_ = prob_remapping.conf_remap_loss_and_metrics(map_mat,self.prior,remap_base_prob,remap_target,net_opts['batch_size'],net_opts['epsilon'])
+			self.remapping_loss,self.seg_acc,_ = prob_remapping.conf_remap_loss_and_metrics(self.map_mat,self.prior,self.remap_base_prob,self.remap_target,net_opts['batch_size'],net_opts['epsilon'])
 		else:
 			self.seg_acc = tf.constant(-1.0,shape=None,dtype=DAT_TYPE)
 		if net_opts['remapping_loss_weight'] > 0:
