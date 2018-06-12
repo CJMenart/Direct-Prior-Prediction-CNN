@@ -57,7 +57,7 @@ def _size_imgs(imgs,truths,net_opts):
 			imgs[i] = cv2.resize(imgs[i], (net_opts['standard_image_size'][0],net_opts['standard_image_size'][1]))
 			truths[i] = cv2.resize(truths[i], (net_opts['standard_image_size'][0],net_opts['standard_image_size'][1]),interpolation=cv2.INTER_NEAREST)
 	elif net_opts['img_sizing_method'] == 'pad_input':
-		pad_size = net_opts['standard_image_size']
+		pad_size = net_opts['standard_size']
 		for i in range(len(imgs)):
 			ratio = np.asscalar(np.min(np.array(pad_size)/imgs[i].shape[:2]))
 			if DEBUG:
