@@ -94,5 +94,4 @@ class TrainOpHandler:
 					grad = sess.run(g,feed_dict={})
 					print('gradients:',text_log)
 					print(grad,text_log)
-
 				
