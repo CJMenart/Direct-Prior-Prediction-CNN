@@ -16,6 +16,7 @@ from get_latest_model import *
 from data_loader import *
 import partition_enum
 from build_feed_dict import *
+from augment_img_node import *
 #turns off annoying warnings about compiling TF for vector instructions
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
@@ -80,9 +81,7 @@ def training(net_opts,data_loader,checkpoint_dir):
 	else:
 		#TODO move this to selecting weighted or unweighted loss function
 		class_freq = np.ones((1,data_loader.num_labels()),dtype=np.float32)/2 #unweight
-	
-	tf.reset_default_graph()
-	
+		
 	if net_opts['is_gpu']:
 		sess = tf.InteractiveSession()
 	else:
@@ -92,8 +91,13 @@ def training(net_opts,data_loader,checkpoint_dir):
 		)
 		sess = tf.InteractiveSession(config=config)
 	
-	#TODO: Move reg down into net if/when you make a network base class...
-	network = net.PriorNet(net_opts,data_loader.num_labels())
+	#Augmentation, sizing--but not mean-subtraction b/c it is specific to network architecture. Fingers crossed that doesn't cause issues later
+	inputs,seg_target = augment_no_size_change(data_loader.inputs(),data_loader.seg_target()):
+	inputs,seg_target = size_imgs(inputs,seg_target,net_opts)
+	is_train = tf.placeholder()
+	
+	network = net.PriorNet(self,net_opts,data_loader.num_labels(),inputs,seg_target,is_train,class_frequency=class_freq)
+	
 	best_val_loss = tf.Variable(sys.float_info.max,trainable=False,name="best_val_loss")
 	reg_loss = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 	total_loss = network.loss + reg_loss
@@ -102,11 +106,9 @@ def training(net_opts,data_loader,checkpoint_dir):
 		double_print(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES),text_log)
 	
 	train_op_handler = TrainOpHandler(net_opts,total_loss)
-	
 	#tensorboard inspection
 	summaries = tf.summary.merge_all()
-	summary_writer = tf.summary.FileWriter(checkpoint_dir,graph=sess.graph)
-	
+	summary_writer = tf.summary.FileWriter(checkpoint_dir,graph=sess.graph)	
 	saver = tf.train.Saver()
 	
 	latest_model = get_latest_model(checkpoint_dir)

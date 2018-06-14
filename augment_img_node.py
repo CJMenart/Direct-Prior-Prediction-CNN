@@ -43,9 +43,11 @@ def test_aug(dataset_dir):
 	img_in = tf.placeholder(tf.float32,[None,None,None,3])
 	truth_in = tf.placeholder(tf.int64,[None,None,None])
 	aug_img, aug_truth = augment_no_size_change(img_in,truth_in)
+	net_opts = {'img_sizing_method': 'standard_size','standard_image_size':[321,321]}
+	(aug_img, aug_truth) = size_imgs(aug_img,aug_truth,net_opts)
 	
 	loader = loading.CVL2018DataLoader('_',dataset_dir)
-		
+	
 	sess = tf.InteractiveSession()
 	tf.global_variables_initializer().run()
 	split = partition_enum.TRAIN
@@ -71,12 +73,13 @@ def test_aug(dataset_dir):
 		
 def size_imgs(imgs,truths,net_opts):
 	"Size-related preprocessing." 
-	if len(imgs) == 1:
+	#Technically no action is needed if there's only one image. But we don't turn it off in that case. I feel this is the best way to avoid unexpected behavior.
+	if net_opts['img_sizing_method'] == 'run_img_by_img':
 		return (imgs,truths) #no need to alter single image
 	elif net_opts['img_sizing_method'] == 'standard_size':
-		imgs = tf.image.resize_images(imgs,net_opts['standard_image_size'],align_corners=True)
-		truths = tf.squeeeze(tf.image.resize_images(tf.expand_dims(truths,3),net_opts['standard_image_size'],align_corners=True,method=ResizeMethod.NEAREST_NEIGHBOR), axis=3)
-		
+		imgs = tf.image.resize_images(imgs,net_opts['standard_image_size'],align_corners=True,method=tf.image.ResizeMethod.BICUBIC)
+		truths = tf.squeeze(tf.image.resize_images(tf.expand_dims(truths,3),net_opts['standard_image_size'],align_corners=True,method=tf.image.ResizeMethod.NEAREST_NEIGHBOR), axis=3)
+		return (imgs,truths)
 	elif net_opts['img_sizing_method'] == 'pad_input':
 		raise NotImplementedError
 		
@@ -91,4 +94,6 @@ def size_imgs(imgs,truths,net_opts):
 			imgs[i],truths[i] = pad_to_size(imgs[i],pad_size,truths[i])
 	else:
 		raise Exception('Not sure how to handle image size.')
+		
+
 		
