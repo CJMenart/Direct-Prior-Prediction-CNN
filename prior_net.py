@@ -22,7 +22,7 @@ class PriorNet:
 
 	def __init__(self,net_opts,num_labels,inputs,seg_target,is_train,class_frequency=None,remap_target=None,remap_base_prob=None,map_mat=None):
   
-		self._base_net = BaseFCN(net_opts,self.inputs,self.is_train)
+		self._base_net = BaseFCN(net_opts,inputs,is_train)
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
 		self._base_net_vectorized = tf.reduce_max(self._base_net.out,[1,2])
 		activation_summary(self._base_net_vectorized,'base_net_vectorized')
