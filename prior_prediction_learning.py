@@ -17,6 +17,8 @@ from data_loader import *
 import partition_enum
 from build_feed_dict import *
 from augment_img_node import *
+from cvl_2018_data_loader import *
+from cvl_2018_tfrecord_data_loader import *
 #turns off annoying warnings about compiling TF for vector instructions
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
@@ -56,16 +58,33 @@ def train_on_clusters(paths,net_opts):
 		
 		training(clust_paths,clust_opts,clust_train_img_names,clust_val_img_names)
 	
-def training(net_opts,data_loader,checkpoint_dir):
+def training(net_opts,checkpoint_dir):
 	"Train the actual network here. Can restart training from checkpoint if stopped.\
 	Gnarliest function in the software probably."
 	
-	#Paths to text logs
+	#Paths to text output logs
 	text_log = os.path.join(checkpoint_dir, "NetworkLog.txt")
 	train_err_log = os.path.join(checkpoint_dir, "TrainErr.csv")
 	val_err_log = os.path.join(checkpoint_dir, "val_err.csv")
-	
 	double_print("Welcome to prior network training.",text_log)	
+		
+	#first, start TF session and construct data_loader so we can begin setting up data
+	if net_opts['is_gpu']:
+		sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
+	else:
+		#debug to force CPU mode!
+		config = tf.ConfigProto(
+			device_count = {'GPU': 0}
+		)
+		sess = tf.InteractiveSession(config=config)
+		
+	if net_opts['data_loader_type'] == 'CVL_2018':
+		data_loader = CVL2018DataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'])	
+	elif net_opts['data_loader_type'] == 'TFRecord':
+		data_loader = CVL2018TFRecordDataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'])
+	else:
+		raise Exception("data_loader type not recognized.")
+	
 	if net_opts['remapping_loss_weight'] > 0:
 		map_mat = data_loader.map_mat()
 	#more debugging
@@ -83,16 +102,7 @@ def training(net_opts,data_loader,checkpoint_dir):
 	else:
 		#TODO move this to selecting weighted or unweighted loss function
 		class_freq = np.ones((1,data_loader.num_labels()),dtype=np.float32)/2 #unweight
-		
-	if net_opts['is_gpu']:
-		sess = tf.InteractiveSession()
-	else:
-		#debug to force CPU mode!
-		config = tf.ConfigProto(
-			device_count = {'GPU': 0}
-		)
-		sess = tf.InteractiveSession(config=config)
-	
+
 	#Augmentation, sizing--but not mean-subtraction b/c it is specific to network architecture. Fingers crossed that doesn't cause issues later
 	inputs,seg_target = augment_no_size_change(data_loader.inputs(),data_loader.seg_target())
 	inputs,seg_target = size_imgs(inputs,seg_target,net_opts)
