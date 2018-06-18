@@ -5,7 +5,7 @@ import numpy as np
 import os
 import partition_enum
 from matplotlib import pyplot as plt
-import cvl_2018_data_loader as loading
+import cvl_2018_tfrecord_data_loader as loading
 import tensorflow as tf
 
 GAMMA_RANGE = [0.5,2]
@@ -33,42 +33,42 @@ def augment_no_size_change(imgs,truth=None):
 
 	
 def _gamma_correction(img, correction):
-    img = img/255.0
-    img = tf.pow(img, 1/correction)
+    img = img/tf.constant(255.0,dtype=tf.float32)
+    img = tf.pow(img, tf.constant(1.0,dtype=tf.float32)/correction)
+    img = img*255.0
     return img
 	
 	
 def test_aug(dataset_dir):
 	"Quick effort to test tensorflow-ified augmentation."
-	img_in = tf.placeholder(tf.float32,[None,None,None,3])
-	truth_in = tf.placeholder(tf.int64,[None,None,None])
+	sess = tf.InteractiveSession()
+	loader = loading.CVL2018TFRecordDataLoader('_',dataset_dir,1)
+	img_in = loader.inputs()
+	truth_in = loader.seg_target()
 	aug_img, aug_truth = augment_no_size_change(img_in,truth_in)
 	net_opts = {'img_sizing_method': 'standard_size','standard_image_size':[321,321]}
-	(aug_img, aug_truth) = size_imgs(aug_img,aug_truth,net_opts)
+	(aug_img, aug_truth) = size_imgs(aug_img,aug_truth,net_opts)	
 	
-	loader = loading.CVL2018DataLoader('_',dataset_dir)
-	
-	sess = tf.InteractiveSession()
 	tf.global_variables_initializer().run()
 	split = partition_enum.TRAIN
 	#saver.restore(sess,weight_fname)
 	for i in range(loader.num_data_items(split)):
-		(img,truth) = loader.img_and_truth(i,split)
+		feed_dict = loader.feed_dict(partition_enum.TRAIN,1)
+		
+		img_before,truth_before,img_after,truth_after = sess.run([img_in,truth_in,aug_img,aug_truth],feed_dict=feed_dict)
 		
 		fig = plt.figure()
 		ax1 = fig.add_subplot(211)
-		ax1.imshow(img)
+		ax1.imshow(np.squeeze(img_before[0,:,:,:]/255))
 		ax2 = fig.add_subplot(212)
-		ax2.imshow(truth)
+		ax2.imshow(np.squeeze(truth_before[0,:,:]))
 		plt.show()
-		
-		img,truth = sess.run([aug_img,aug_truth],feed_dict={img_in:img[np.newaxis,:,:,:],truth_in:truth[np.newaxis,:,:]})
-		
+				
 		fig = plt.figure()
 		ax1 = fig.add_subplot(211)
-		ax1.imshow(np.squeeze(img[0,:,:,:]))
+		ax1.imshow(np.squeeze(img_after[0,:,:,:]/255))
 		ax2 = fig.add_subplot(212)
-		ax2.imshow(np.squeeze(truth[0,:,:]))
+		ax2.imshow(np.squeeze(truth_after[0,:,:]))
 		plt.show()
 		
 def size_imgs(imgs,truths,net_opts):

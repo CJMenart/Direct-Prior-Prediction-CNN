@@ -22,7 +22,7 @@ from cvl_2018_tfrecord_data_loader import *
 #turns off annoying warnings about compiling TF for vector instructions
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-DEBUG = True
+DEBUG = False
 # Chris Menart, 1-9-18
 #went back to editing 5-18-18		
 
@@ -81,7 +81,8 @@ def training(net_opts,checkpoint_dir):
 	if net_opts['data_loader_type'] == 'CVL_2018':
 		data_loader = CVL2018DataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'])	
 	elif net_opts['data_loader_type'] == 'TFRecord':
-		data_loader = CVL2018TFRecordDataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'])
+		data_loader = CVL2018TFRecordDataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'],
+			1 if net_opts['img_sizing_method'] == 'run_img_by_img' else net_opts['batch_size'])
 	else:
 		raise Exception("data_loader type not recognized.")
 	
@@ -151,6 +152,7 @@ def training(net_opts,checkpoint_dir):
 			val_loss = 0
 			val_err = 0
 			val_acc = 0
+			val_num = 0
 			step_sz = 1 if net_opts['img_sizing_method']=='run_img_by_img' else batch_size
 			num_val = data_loader.num_data_items(partition_enum.VAL)
 			if DEBUG:
@@ -158,7 +160,10 @@ def training(net_opts,checkpoint_dir):
 				print(num_val)
 			for v_ind in range(0,num_val,step_sz):
 							
-
+				# BIG WARNING: Right now, validation set we get is 'approximate' in the sense that if the batch size doesn't divide
+				# evenly into val set size, we'll be missing a few validation images from each set. Not necessarily the same ones each time.
+				# if we have a large val set, this should not have any noticeable impact on training, excpet when we're using val stats to make
+				# sure the network is actually changing. This is a casualty of making the code work nicely with both TFRecords and feed_dicts.
 				feed_dict = data_loader.feed_dict(partition_enum.VAL,batch_size=batch_size)  
 				feed_dict[is_train] = False        
 				#feed_dict = build_feed_dict(data_loader,network,range(v_ind,min(num_val,v_ind+step_sz)),partition_enum.VAL,net_opts)
@@ -167,10 +172,11 @@ def training(net_opts,checkpoint_dir):
 				val_loss += loss
 				val_err += err
 				val_acc += acc
+				val_num += step_sz
 				
-			val_loss = np.mean(val_loss)/data_loader.num_data_items(partition_enum.VAL)
-			val_err = np.mean(val_err)/data_loader.num_data_items(partition_enum.VAL)
-			val_acc = np.mean(val_acc)/data_loader.num_data_items(partition_enum.VAL)
+			val_loss = np.mean(val_loss)/val_num
+			val_err = np.mean(val_err)/val_num
+			val_acc = np.mean(val_acc)/val_num
 			double_print('step %d: val loss %.5f' % (iter, val_loss),text_log)
 			double_print('step %d: val error ~= %.5f' % (iter, val_err),text_log)
 			double_print('step %d: val acc ~= %.5f' % (iter,val_acc),text_log)

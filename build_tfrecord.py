@@ -24,8 +24,8 @@ def build_tfrecord(dataset_dir):
 					print(truth.shape)
 				example = tf.train.Example(features=tf.train.Features(
 					feature={
-						'image': _bytes_feature(img.tobytes()),
-						'label': _bytes_feature(truth.tobytes()),
+						'image': _bytes_feature(img.tostring()),
+						'label': _bytes_feature(truth.tostring()),
 						'height': _int64_feature(truth.shape[0]),
 						'width': _int64_feature(truth.shape[1])
 				}))
