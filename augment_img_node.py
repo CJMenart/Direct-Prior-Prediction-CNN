@@ -46,7 +46,7 @@ def test_aug(dataset_dir):
 	img_in = loader.inputs()
 	truth_in = loader.seg_target()
 	aug_img, aug_truth = augment_no_size_change(img_in,truth_in)
-	net_opts = {'img_sizing_method': 'standard_size','standard_image_size':[321,321]}
+	net_opts = {'img_sizing_method': 'pad_input','standard_image_size':[481,481]}
 	(aug_img, aug_truth) = size_imgs(aug_img,aug_truth,net_opts)	
 	
 	tf.global_variables_initializer().run()
@@ -81,17 +81,10 @@ def size_imgs(imgs,truths,net_opts):
 		truths = tf.squeeze(tf.image.resize_images(tf.expand_dims(truths,3),net_opts['standard_image_size'],align_corners=True,method=tf.image.ResizeMethod.NEAREST_NEIGHBOR), axis=3)
 		return (imgs,truths)
 	elif net_opts['img_sizing_method'] == 'pad_input':
-		raise NotImplementedError
-		
-		#TODO get augmentation and sizing back into actual pipeline...
-		pad_size = net_opts['standard_image_size']
-		for i in range(len(imgs)):
-			ratio = np.asscalar(np.min(np.array(pad_size)/imgs[i].shape[:2]))
-			if DEBUG:
-				print('resize ratio for padded input:')
-				print(ratio)
-			imgs[i],truths[i] = resize_ratio(imgs[i],ratio,truths[i])
-			imgs[i],truths[i] = pad_to_size(imgs[i],pad_size,truths[i])
+	
+		imgs = tf.image.resize_image_with_crop_or_pad(imgs,*net_opts['standard_image_size'])
+		truths = tf.squeeze(tf.image.resize_image_with_crop_or_pad(tf.expand_dims(truths,3),*net_opts['standard_image_size']),axis=3)
+		return (imgs,truths)
 	else:
 		raise Exception('Not sure how to handle image size.')
 		

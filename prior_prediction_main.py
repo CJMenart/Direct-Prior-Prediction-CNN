@@ -77,7 +77,7 @@ if __name__ == '__main__':
 	net_opts['is_fc_batchnorm'] = args.is_fc_batchnorm
 	net_opts['iter_per_automatic_backup'] = 10000
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
-	net_opts['standard_image_size'] = [321,321]
+	net_opts['standard_image_size'] = [32*15+1,32*15+1]
 	
 	net_opts['img_sizing_method'] = args.img_sizing_method
 	assert(	net_opts['img_sizing_method'] == 'run_img_by_img' or 	#may use to avoid all possible im distortions for ims of different size, but slower
