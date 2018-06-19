@@ -76,6 +76,7 @@ if __name__ == '__main__':
 	net_opts['fcn_weight_file'] = args.fcn_weight_file
 	net_opts['is_fc_batchnorm'] = args.is_fc_batchnorm
 	net_opts['iter_per_automatic_backup'] = 10000
+	net_opts['num_dropout_eval_reps'] = 32
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
 	net_opts['standard_image_size'] = [32*15+1,32*15+1]
 	

@@ -19,17 +19,18 @@ from build_feed_dict import *
 from augment_img_node import *
 from cvl_2018_data_loader import *
 from cvl_2018_tfrecord_data_loader import *
+import partition_enum
 #turns off annoying warnings about compiling TF for vector instructions
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-DEBUG = True
+DEBUG = False
 # Chris Menart, 1-9-18
 #went back to editing 5-18-18		
 
 #TODO write testing control method IN PROGRESS
 #testing script for these purposes should write out test predictions, but also spread for all values 
 #(runs one net--to evaluate spread for multiple clusters we will call this multiple times)
-def testing(net_opts,checkpoint_dir):
+def evaluate(net_opts,checkpoint_dir,partition):
 	"Run network, producing predictions for all test values (and spread of evaluations w/dropout if applicable)."
 	
 	#Paths to text output logs
@@ -54,8 +55,15 @@ def testing(net_opts,checkpoint_dir):
 	else:
 		raise Exception("data_loader type not recognized.")
 	
-	is_train = tf.placeholder(tf.bool,None)
-	network = net.PriorNet(net_opts,data_loader.num_labels(),data_loader.inputs(),data_loader.seg_target(),is_train)
+	is_train = tf.placeholder(tf.bool,None)	
+	repeated_inputs = tf.tile(data_loader.inputs(),[net_opts['num_dropout_eval_reps'],1,1,1])
+	repeated_truths = tf.tile(data_loader.seg_target(),[net_opts['num_dropout_eval_reps'],1,1])
+	spread_network = net.PriorNet(net_opts,data_loader.num_labels(),repeated_inputs,repeated_truths,is_train)
+	_,spread = tf.nn.moments(spread_network.prior,axes=[0])
+	
+	with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+		net_opts['drop_prob'] = 0
+		final_network = net.PriorNet(net_opts,data_loader.num_labels(),data_loader.inputs(),data_loader.seg_target(),is_train)
 	
 	best_val_loss = tf.Variable(sys.float_info.max,trainable=False,name="best_val_loss")
 	
@@ -70,20 +78,28 @@ def testing(net_opts,checkpoint_dir):
 		raise Exception('Trained model not found.')
 		
 	priors = []
-	num_test = data_loader.num_data_items(partition_enum.TEST)
+	spreads = []
+	num_test = data_loader.num_data_items(partition)
 	for t_ind in range(num_test):
 					
-		feed_dict = data_loader.feed_dict(partition_enum.TEST,batch_size=1)  
+		feed_dict = data_loader.feed_dict(partition,batch_size=1)  
 		feed_dict[is_train] = False
 
-		prior = sess.run(network.prior, feed_dict=feed_dict)
-		priors.append(prior)
+		prior_ev, spread_ev = sess.run([final_network.prior, spread], feed_dict=feed_dict)
+		priors.append(prior_ev)
+		spreads.append(spread_ev)
 
-	fname = os.path.join(checkpointDir,"test_priors.csv")
+	fname = os.path.join(checkpointDir,"%s_priors.csv" % partition_enum.SPLITNAMES[partition])
 	file = open(fname,"w+")
-	for line in embed:
+	for line in priors:
 		print(','.join(["%.6f"%n for n in line]),file=file)
-	file.close()		
+	file.close()
+	fname = os.path.join(checkpointDir,"%s_spreads.csv" % partition_enum.SPLITNAMES[partition])
+	file = open(fname,"w+")
+	for line in spreads:
+		print(','.join(["%.6f"%n for n in line]),file=file)
+	file.close()	
+	
 	sess.close()
 	double_print("Done.",text_log)
 
