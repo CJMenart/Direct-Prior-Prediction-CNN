@@ -7,6 +7,7 @@ import os
 import partition_enum
 import tensorflow as tf
 import random
+from img_util import *
 
 #TODO if we want to get fancy we could also scan the actual filesize of the folder
 MAX_VAL_PRELOAD = 250
@@ -16,11 +17,11 @@ DAT_TYPE = tf.float32
 
 class CVL2018DataLoader(IDataLoader):
 
-  def __init__(self, base_fcn_weight_dir, dataset_dir):
-    self._base_fcn_weight_dir = base_fcn_weight_dir
-    self._dataset_dir = dataset_dir
+  def __init__(self, net_opts):
+    self._base_fcn_weight_dir = net_opts['base_fcn_weight_dir']
+    self._dataset_dir = net_opts['dataset_dir']
   
-    (self._num_test,self._num_train,self._num_val,self._num_labels) = read_matfile(os.path.join(dataset_dir,'dataset_info.mat'),['num_test','num_train','num_val','num_labels'])
+    (self._num_test,self._num_train,self._num_val,self._num_labels) = read_matfile(os.path.join(self._dataset_dir,'dataset_info.mat'),['num_test','num_train','num_val','num_labels'])
     
     if self._num_val < MAX_VAL_PRELOAD:
       self._preloaded_val = False
@@ -40,7 +41,10 @@ class CVL2018DataLoader(IDataLoader):
     self._cur_epoch_indices = {}
     for part in [partition_enum.TRAIN,partition_enum.TEST,partition_enum.VAL]:
       self._cur_epoch_indices[part] = []
-  
+	  
+    #save img sizing function
+    self._size_imgs = lambda img,truth: size_imgs(img,truth,net_opts)
+
   def inputs(self):
     return self._inputs
   
@@ -55,6 +59,7 @@ class CVL2018DataLoader(IDataLoader):
       img,truth = self.img_and_truth(self._get_epoch_index(partition),partition)
       imgs.append(img)
       truths.append(truth)
+    imgs,truths = self._size_imgs(imgs,truths)
     return {self._inputs:imgs,self._seg_target:truths}
   
   def base_fcn_weight_dir(self):

@@ -15,6 +15,7 @@ import os
 import partition_enum as pe
 import tensorflow as tf
 import random
+from img_util import *
 
 DEBUG = True
 DAT_TYPE = tf.float32
@@ -22,12 +23,11 @@ DAT_TYPE = tf.float32
 
 class CVL2018TFRecordDataLoader(IDataLoader):
 
-	def __init__(self, base_fcn_weight_dir, dataset_dir, batch_size):
-		self._base_fcn_weight_dir = base_fcn_weight_dir
-		self._dataset_dir = dataset_dir
-		(self._num_test,self._num_train,self._num_val,self._num_labels) = read_matfile(os.path.join(dataset_dir,'dataset_info.mat'),['num_test','num_train','num_val','num_labels'])
+	def __init__(self, net_opts):
+		self._base_fcn_weight_dir = net_opts['base_fcn_weight_dir']
+		(self._num_test,self._num_train,self._num_val,self._num_labels) = read_matfile(os.path.join(net_opts['dataset_dir'],'dataset_info.mat'),['num_test','num_train','num_val','num_labels'])
 		
-		self._batch_size = batch_size
+		self._batch_size = 1 if net_opts['img_sizing_method'] == 'run_img_by_img' else net_opts['batch_size']
 		self._partition = tf.placeholder(tf.int64,None)
 		def _parse_function(example_proto):
 			features = {'image': tf.FixedLenFeature([],tf.string),
@@ -50,14 +50,14 @@ class CVL2018TFRecordDataLoader(IDataLoader):
 		self._img_splits = {}
 		self._truth_splits = {}
 		for split,splitname in zip([pe.TRAIN,pe.TEST,pe.VAL],['Train','Test','Val']):
-			tfrecord = tf.data.TFRecordDataset(os.path.join(dataset_dir,'TFRecords','%s.tfrecord' % splitname))
+			tfrecord = tf.data.TFRecordDataset(os.path.join(net_opts['dataset_dir'],'TFRecords','%s.tfrecord' % splitname))
 			dataset = tfrecord.map(_parse_function)
 			if split == pe.TRAIN:
 				dataset = dataset.shuffle(buffer_size=1000)
 			if split == pe.TEST:
 				dataset = dataset.batch(1)
 			else:
-				dataset = dataset.batch(batch_size)
+				dataset = dataset.batch(self._batch_size)
 				dataset = dataset.repeat()
 			iterator = dataset.make_one_shot_iterator()
 			self._img_splits[split], self._truth_splits[split] = iterator.get_next()
@@ -72,9 +72,9 @@ class CVL2018TFRecordDataLoader(IDataLoader):
 		self._img.set_shape([None,None,None,3])
 		self._truth.set_shape([None,None,None])
 		
-	def _return_iterator(self,partition,batch_size):
-		"Helper for setting up iterators and batch"
-				
+		#img sizing must be handled in data loader
+		self._img,self._truth = size_imgs_node(self._img,self._truth,net_opts)
+						
 	def inputs(self):
 		return self._img
 	

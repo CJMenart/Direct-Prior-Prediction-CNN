@@ -22,11 +22,71 @@ from cvl_2018_tfrecord_data_loader import *
 #turns off annoying warnings about compiling TF for vector instructions
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-DEBUG = False
+DEBUG = True
 # Chris Menart, 1-9-18
 #went back to editing 5-18-18		
 
-#TODO write testing control method
+#TODO write testing control method IN PROGRESS
+#testing script for these purposes should write out test predictions, but also spread for all values 
+#(runs one net--to evaluate spread for multiple clusters we will call this multiple times)
+def testing(net_opts,checkpoint_dir):
+	"Run network, producing predictions for all test values (and spread of evaluations w/dropout if applicable)."
+	
+	#Paths to text output logs
+	text_log = os.path.join(checkpoint_dir, "NetworkLog.txt")
+	double_print("Welcome to prior network testing.",text_log)	
+		
+	#first, start TF session and construct data_loader so we can begin setting up data
+	if net_opts['is_gpu']:
+		sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
+	else:
+		#debug to force CPU mode!
+		config = tf.ConfigProto(
+			device_count = {'GPU': 0}
+		)
+		sess = tf.InteractiveSession(config=config)
+		
+	if net_opts['data_loader_type'] == 'CVL_2018':
+		data_loader = CVL2018DataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'])	
+	elif net_opts['data_loader_type'] == 'TFRecord':
+		data_loader = CVL2018TFRecordDataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'],
+			1 if net_opts['img_sizing_method'] == 'run_img_by_img' else net_opts['batch_size'])
+	else:
+		raise Exception("data_loader type not recognized.")
+	
+	is_train = tf.placeholder(tf.bool,None)
+	network = net.PriorNet(net_opts,data_loader.num_labels(),data_loader.inputs(),data_loader.seg_target(),is_train)
+	
+	best_val_loss = tf.Variable(sys.float_info.max,trainable=False,name="best_val_loss")
+	
+	saver = tf.train.Saver()	
+	latest_model = get_latest_model(checkpoint_dir)
+	if latest_model:
+		tf.global_variables_initializer().run()
+		saver.restore(sess,latest_model)
+		start = int(latest_model.split('-')[-1])+1
+		double_print('Starting from iteration %d. Current validation loss: %.5f' % (start, np.mean(sess.run([best_val_loss]))),text_log)
+	else:
+		raise Exception('Trained model not found.')
+		
+	priors = []
+	num_test = data_loader.num_data_items(partition_enum.TEST)
+	for t_ind in range(num_test):
+					
+		feed_dict = data_loader.feed_dict(partition_enum.TEST,batch_size=1)  
+		feed_dict[is_train] = False
+
+		prior = sess.run(network.prior, feed_dict=feed_dict)
+		priors.append(prior)
+
+	fname = os.path.join(checkpointDir,"test_priors.csv")
+	file = open(fname,"w+")
+	for line in embed:
+		print(','.join(["%.6f"%n for n in line]),file=file)
+	file.close()		
+	sess.close()
+	double_print("Done.",text_log)
+
 
 
 #TODO OUT OF DATE
@@ -79,10 +139,9 @@ def training(net_opts,checkpoint_dir):
 		sess = tf.InteractiveSession(config=config)
 		
 	if net_opts['data_loader_type'] == 'CVL_2018':
-		data_loader = CVL2018DataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'])	
+		data_loader = CVL2018DataLoader(net_opts)	
 	elif net_opts['data_loader_type'] == 'TFRecord':
-		data_loader = CVL2018TFRecordDataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'],
-			1 if net_opts['img_sizing_method'] == 'run_img_by_img' else net_opts['batch_size'])
+		data_loader = CVL2018TFRecordDataLoader(net_opts)
 	else:
 		raise Exception("data_loader type not recognized.")
 	
@@ -106,7 +165,6 @@ def training(net_opts,checkpoint_dir):
 
 	#Augmentation, sizing--but not mean-subtraction b/c it is specific to network architecture. Fingers crossed that doesn't cause issues later
 	inputs,seg_target = augment_no_size_change(data_loader.inputs(),data_loader.seg_target())
-	inputs,seg_target = size_imgs(inputs,seg_target,net_opts)
 	is_train = tf.placeholder(tf.bool,None)
 	
 	network = net.PriorNet(net_opts,data_loader.num_labels(),inputs,seg_target,is_train,class_frequency=class_freq)
@@ -168,6 +226,9 @@ def training(net_opts,checkpoint_dir):
 				feed_dict[is_train] = False        
 				#feed_dict = build_feed_dict(data_loader,network,range(v_ind,min(num_val,v_ind+step_sz)),partition_enum.VAL,net_opts)
 
+				if DEBUG:
+					print('val feed_dict:')
+					print(feed_dict)
 				loss, err, acc, smry = sess.run([network.loss, network.prior_err, network.seg_acc, summaries], feed_dict=feed_dict)
 				val_loss += loss
 				val_err += err

@@ -42,12 +42,12 @@ def _gamma_correction(img, correction):
 def test_aug(dataset_dir):
 	"Quick effort to test tensorflow-ified augmentation."
 	sess = tf.InteractiveSession()
-	loader = loading.CVL2018TFRecordDataLoader('_',dataset_dir,1)
+	net_opts = {'img_sizing_method': 'pad_input','standard_image_size':[481,481],'batch_size':1,'base_fcn_weight_dir':'_','dataset_dir':dataset_dir}
+	loader = loading.CVL2018TFRecordDataLoader(net_opts)
 	img_in = loader.inputs()
 	truth_in = loader.seg_target()
 	aug_img, aug_truth = augment_no_size_change(img_in,truth_in)
-	net_opts = {'img_sizing_method': 'pad_input','standard_image_size':[481,481]}
-	(aug_img, aug_truth) = size_imgs(aug_img,aug_truth,net_opts)	
+	#(aug_img, aug_truth) = size_imgs(aug_img,aug_truth,net_opts)	
 	
 	tf.global_variables_initializer().run()
 	split = partition_enum.TRAIN
