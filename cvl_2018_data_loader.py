@@ -9,8 +9,6 @@ import tensorflow as tf
 import random
 from img_util import *
 
-#TODO if we want to get fancy we could also scan the actual filesize of the folder
-MAX_VAL_PRELOAD = 250
 DEBUG = False
 DAT_TYPE = tf.float32
 
@@ -22,24 +20,12 @@ class CVL2018DataLoader(IDataLoader):
     self._dataset_dir = net_opts['dataset_dir']
   
     (self._num_test,self._num_train,self._num_val,self._num_labels) = read_matfile(os.path.join(self._dataset_dir,'dataset_info.mat'),['num_test','num_train','num_val','num_labels'])
-    
-    if self._num_val < MAX_VAL_PRELOAD:
-      self._preloaded_val = False
-      self._val_imgs = []
-      self._val_truth = []
-      for im in range(self._num_val):
-        (img,truth) = val_img_and_truth(im)
-        self._val_imgs.append(img)
-        self._val_truth.append(truth)
-      self._preloaded_val = True
-    else: 
-      self._preloaded_val = False
-        
+            
     self._inputs = tf.placeholder(DAT_TYPE,[None,None,None,3])
     self._seg_target = tf.placeholder(tf.int64,[None,None,None]) #batch,width,height
   
     self._cur_epoch_indices = {}
-    for part in [partition_enum.TRAIN,partition_enum.TEST,partition_enum.VAL]:
+    for part in partition_enum.SPLITS:
       self._cur_epoch_indices[part] = []
 	  
     #save img sizing function
@@ -72,11 +58,8 @@ class CVL2018DataLoader(IDataLoader):
       assert ind <= self._num_test
       return self._img_and_truth(ind,'TestImgs','test')
     elif partition == partition_enum.VAL:
-      assert ind <= self._num_val
-      if self._preloaded_val:
-        return (self._val_imgs[ind],self._val_truth[ind])
-      else:
-        return self._img_and_truth(ind,'ValImgs','val')
+      assert ind <= self._num_val  
+      return self._img_and_truth(ind,'ValImgs','val')
     elif partition == partition_enum.TRAIN:
       assert ind <= self._num_train
       return self._img_and_truth(ind,'TrainImgs','train')

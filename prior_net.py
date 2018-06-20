@@ -72,8 +72,9 @@ class PriorNet:
 			activation = fc_layer(in_feat,out_chann,net_opts,True)
 			
 			if net_opts['is_target_distribution']:
-				activation = tf.nn.relu(activation, name='activation')
-				activation = activation/tf.reduce_sum(activation,-1)
+				#activation = tf.nn.relu(activation, name='activation')
+				#activation = activation/tf.reduce_sum(activation,-1)
+				activation = tf.nn.softmax(activation,axis=-1)
 			else: #assumed we have binary target if not distribution
 				activation = tf.nn.sigmoid(activation)
 					

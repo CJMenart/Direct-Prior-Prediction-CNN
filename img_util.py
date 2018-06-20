@@ -9,6 +9,7 @@ DEBUG = False
 
 def size_imgs(imgs,truths,net_opts):
 	"size-related processing with cv2."
+	std_sz = net_opts['standard_image_size']
 	#Technically no action is needed if there's only one image. But we don't turn it off in that case. I feel this is the best way to avoid unexpected behavior.
 	if net_opts['img_sizing_method'] == 'run_img_by_img':
 		return (imgs,truths) #no need to alter single image
@@ -19,7 +20,6 @@ def size_imgs(imgs,truths,net_opts):
 		return (imgs,truths)
 	elif net_opts['img_sizing_method'] == 'pad_input':
 		for i in range(len(imgs)):
-			std_sz = net_opts['standard_image_size']
 			min_ratio = min(std_sz[0]/imgs[i].shape[0],std_sz[1]/imgs[i].shape[1])
 			img,truth = resize_ratio(imgs[i],min_ratio,truths[i])
 			imgs[i],truths[i] = pad_to_size(img,std_sz,truth)

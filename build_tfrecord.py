@@ -12,9 +12,10 @@ DEBUG = True
 
 def build_tfrecord(dataset_dir):
 	print('Building tfrecord from %s...' % dataset_dir)
-	loader = loading.CVL2018DataLoader('_',dataset_dir)
+	net_opts = {'dataset_dir':dataset_dir,'base_fcn_weight_dir':'_'}
+	loader = loading.CVL2018DataLoader(net_opts)
 	os.makedirs(os.path.join(dataset_dir,'TFRecords'))
-	for split,splitname in zip([pe.TRAIN,pe.TEST,pe.VAL],['Train','Test','Val']):
+	for split,splitname in zip(pe.SPLITS,pe.SPLITNAMES):
 		output_file = os.path.join(dataset_dir,'TFRecords','%s.tfrecord' % splitname)
 		with tf.python_io.TFRecordWriter(output_file) as record_writer:
 			for i in range(loader.num_data_items(split)):

@@ -27,7 +27,10 @@ DEBUG = False
 # Chris Menart, 1-9-18
 #went back to editing 5-18-18		
 
-#TODO write testing control method IN PROGRESS
+
+
+
+
 #testing script for these purposes should write out test predictions, but also spread for all values 
 #(runs one net--to evaluate spread for multiple clusters we will call this multiple times)
 def evaluate(net_opts,checkpoint_dir,partition):
@@ -102,7 +105,6 @@ def evaluate(net_opts,checkpoint_dir,partition):
 	
 	sess.close()
 	double_print("Done.",text_log)
-
 
 
 #TODO OUT OF DATE
