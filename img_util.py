@@ -2,8 +2,48 @@
 
 import cv2
 import numpy as np
+import tensorflow as tf
 
 DEBUG = False
+
+
+def size_imgs(imgs,truths,net_opts):
+	"size-related processing with cv2."
+	#Technically no action is needed if there's only one image. But we don't turn it off in that case. I feel this is the best way to avoid unexpected behavior.
+	if net_opts['img_sizing_method'] == 'run_img_by_img':
+		return (imgs,truths) #no need to alter single image
+	elif net_opts['img_sizing_method'] == 'standard_size':
+		for i in range(len(imgs)):
+			imgs[i] = cv2.resize(imgs[i], (std_sz[0],std_sz[1]))
+			truths[i] = cv2.resize(truths[i],(std_sz[0],std_sz[1]),interpolation=cv2.INTER_NEAREST)
+		return (imgs,truths)
+	elif net_opts['img_sizing_method'] == 'pad_input':
+		for i in range(len(imgs)):
+			std_sz = net_opts['standard_image_size']
+			min_ratio = min(std_sz[0]/imgs[i].shape[0],std_sz[1]/imgs[i].shape[1])
+			img,truth = resize_ratio(imgs[i],min_ratio,truths[i])
+			imgs[i],truths[i] = pad_to_size(img,std_sz,truth)
+		return (imgs,truths)
+	else:
+		raise Exception('Not sure how to handle image size.')
+
+
+def size_imgs_node(imgs,truths,net_opts):
+	"Size-related preprocessing as tensorflow subgraph." 
+	#Technically no action is needed if there's only one image. But we don't turn it off in that case. I feel this is the best way to avoid unexpected behavior.
+	if net_opts['img_sizing_method'] == 'run_img_by_img':
+		return (imgs,truths) #no need to alter single image
+	elif net_opts['img_sizing_method'] == 'standard_size':
+		imgs = tf.image.resize_images(imgs,net_opts['standard_image_size'],align_corners=True,method=tf.image.ResizeMethod.BICUBIC)
+		truths = tf.squeeze(tf.image.resize_images(tf.expand_dims(truths,3),net_opts['standard_image_size'],align_corners=True,method=tf.image.ResizeMethod.NEAREST_NEIGHBOR), axis=3)
+		return (imgs,truths)
+	elif net_opts['img_sizing_method'] == 'pad_input':
+	
+		imgs = tf.image.resize_image_with_crop_or_pad(imgs,*net_opts['standard_image_size'])
+		truths = tf.squeeze(tf.image.resize_image_with_crop_or_pad(tf.expand_dims(truths,3),*net_opts['standard_image_size']),axis=3)
+		return (imgs,truths)
+	else:
+		raise Exception('Not sure how to handle image size.')
 
 
 def resize_ratio(img,ratio,truth=None):

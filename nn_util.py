@@ -20,6 +20,7 @@ def fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
 		activation = tf.nn.relu(activation, name='activation')
 		if net_opts['is_fc_batchnorm']:
 			activation = tf.layers.batch_normalization(activation,training=is_train,name='fcbn',renorm=True)
+		#NOTE dropout will be on at all times under this model b/c of testing spread/stat of data is how we want to do things. Be careful. Consider adding placeholders to control.
 		activation = tf.nn.dropout(activation,net_opts['dropout_prob'])	
 			
 	#we use this because all the weights WE create are added to this collection so they can be trained on their own.

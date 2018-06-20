@@ -3,7 +3,7 @@
 import tensorflow as tf
 import numpy as np
 from optimizer_from_string import * 
-DEBUG = True
+DEBUG = False
 
 #TODO: I think I can decouple this from other behavior by making it be, like, you pass in any number of collections for it to build optimizers for,
 #and then to run ops simply pass in any collections you want to use.

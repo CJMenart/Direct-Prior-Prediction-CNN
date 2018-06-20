@@ -13,8 +13,9 @@ DEBUG = True
 def build_tfrecord(dataset_dir):
 	print('Building tfrecord from %s...' % dataset_dir)
 	loader = loading.CVL2018DataLoader('_',dataset_dir)
+	os.makedirs(os.path.join(dataset_dir,'TFRecords'))
 	for split,splitname in zip([pe.TRAIN,pe.TEST,pe.VAL],['Train','Test','Val']):
-		output_file = os.path.join(dataset_dir,'%s.tfrecord' % splitname)
+		output_file = os.path.join(dataset_dir,'TFRecords','%s.tfrecord' % splitname)
 		with tf.python_io.TFRecordWriter(output_file) as record_writer:
 			for i in range(loader.num_data_items(split)):
 				(img,truth) = loader.img_and_truth(i,split)
@@ -23,8 +24,8 @@ def build_tfrecord(dataset_dir):
 					print(truth.shape)
 				example = tf.train.Example(features=tf.train.Features(
 					feature={
-						'image': _bytes_feature(img.tobytes()),
-						'label': _bytes_feature(truth.tobytes()),
+						'image': _bytes_feature(img.tostring()),
+						'label': _bytes_feature(truth.tostring()),
 						'height': _int64_feature(truth.shape[0]),
 						'width': _int64_feature(truth.shape[1])
 				}))

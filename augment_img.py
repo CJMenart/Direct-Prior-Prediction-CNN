@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 import os
 from img_util import resize_ratio
+import cvl_2018_data_loader as loading
 
 GAMMA_RANGE = [0.5,2]
 AREA_RANGE = [200*200,600*600] 
@@ -69,6 +70,43 @@ def augment_img(img,truth=None,fixed_sz=None):
 
 	return (img,truth)
 
+	
+def test_aug(dataset_dir):
+	import tensorflow as tf
+	import augment_img_node as aug_node
+	import partition_enum
+	from matplotlib import pyplot as plt
+	"Quick effort to test tensorflow-ified augmentation."
+	sess = tf.InteractiveSession()
+	net_opts = {'img_sizing_method': 'pad_input','standard_image_size':[481,481],'batch_size':1,'base_fcn_weight_dir':'_','dataset_dir':dataset_dir}
+	loader = loading.CVL2018DataLoader(net_opts)
+	img_in = loader.inputs()
+	truth_in = loader.seg_target()
+	aug_img, aug_truth = aug_node.augment_no_size_change(img_in,truth_in)
+	#(aug_img, aug_truth) = size_imgs(aug_img,aug_truth,net_opts)	
+	
+	tf.global_variables_initializer().run()
+	split = partition_enum.TRAIN
+	#saver.restore(sess,weight_fname)
+	for i in range(loader.num_data_items(split)):
+		feed_dict = loader.feed_dict(partition_enum.TRAIN,1)
+		
+		img_before,truth_before,img_after,truth_after = sess.run([img_in,truth_in,aug_img,aug_truth],feed_dict=feed_dict)
+		
+		fig = plt.figure()
+		ax1 = fig.add_subplot(211)
+		ax1.imshow(np.squeeze(img_before[0,:,:,:]/255))
+		ax2 = fig.add_subplot(212)
+		ax2.imshow(np.squeeze(truth_before[0,:,:]))
+		plt.show()
+				
+		fig = plt.figure()
+		ax1 = fig.add_subplot(211)
+		ax1.imshow(np.squeeze(img_after[0,:,:,:]/255))
+		ax2 = fig.add_subplot(212)
+		ax2.imshow(np.squeeze(truth_after[0,:,:]))
+		plt.show()
+	
 	
 def gamma_correction(img, correction):
     img = img/255.0

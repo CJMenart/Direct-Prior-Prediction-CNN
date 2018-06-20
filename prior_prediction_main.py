@@ -4,7 +4,6 @@ import sys
 import os
 import numpy as np
 import argparse
-from cvl_2018_data_loader import *
 
 #There is one required positional paramter, the directory to save checkpoints in.
 #NOTE: intean command-line arguments are integers here--there's no great way to do it with argparse.
@@ -45,11 +44,12 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	net_opts = {}
 
-	if args.data_loader_type == 'CVL_2018':
-		data_loader = CVL2018DataLoader(args.base_fcn_weight_dir,args.dataset_dir)	
-	else:
-		raise Exception("data_loader type not recognized.")
-		
+	#for data loading--I was trying to keep paths out of net_opts, but maybe this is fine?
+	#was constructing data_loader here. But now it has graph element and so needs to be constructed after tf session... :(
+	net_opts['data_loader_type'] = args.data_loader_type
+	net_opts['base_fcn_weight_dir'] = args.base_fcn_weight_dir
+	net_opts['dataset_dir'] = args.dataset_dir
+	
 	net_opts['model_name'] = 'DirectPriorNet'	
 	net_opts['batches_per_val_check'] = args.batches_per_val_check
 	net_opts['regularization_weight'] = args.regularization_weight
@@ -76,8 +76,9 @@ if __name__ == '__main__':
 	net_opts['fcn_weight_file'] = args.fcn_weight_file
 	net_opts['is_fc_batchnorm'] = args.is_fc_batchnorm
 	net_opts['iter_per_automatic_backup'] = 10000
+	net_opts['num_dropout_eval_reps'] = 32
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
-	net_opts['standard_image_size'] = [321,321]
+	net_opts['standard_image_size'] = [32*15+1,32*15+1]
 	
 	net_opts['img_sizing_method'] = args.img_sizing_method
 	assert(	net_opts['img_sizing_method'] == 'run_img_by_img' or 	#may use to avoid all possible im distortions for ims of different size, but slower
@@ -88,4 +89,4 @@ if __name__ == '__main__':
 	if args.is_eval_mode:
 		net.testing(paths,net_opts)
 	else:
-		net.training(net_opts,data_loader,args.checkpoint_dir)
+		net.training(net_opts,args.checkpoint_dir)
