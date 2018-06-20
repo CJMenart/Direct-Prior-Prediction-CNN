@@ -11,7 +11,7 @@ from img_util import *
 
 #TODO if we want to get fancy we could also scan the actual filesize of the folder
 MAX_VAL_PRELOAD = 250
-DEBUG = True
+DEBUG = False
 DAT_TYPE = tf.float32
 
 

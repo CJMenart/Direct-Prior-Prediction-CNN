@@ -14,8 +14,8 @@ def size_imgs(imgs,truths,net_opts):
 		return (imgs,truths) #no need to alter single image
 	elif net_opts['img_sizing_method'] == 'standard_size':
 		for i in range(len(imgs)):
-			imgs[i] = cv2.resize(imgs[i], (fixed_sz, fixed_sz))
-			truths[i] = cv2.resize(truths[i],(fixed_sz,fixed_sz),interpolation=cv2.INTER_NEAREST)
+			imgs[i] = cv2.resize(imgs[i], (std_sz[0],std_sz[1]))
+			truths[i] = cv2.resize(truths[i],(std_sz[0],std_sz[1]),interpolation=cv2.INTER_NEAREST)
 		return (imgs,truths)
 	elif net_opts['img_sizing_method'] == 'pad_input':
 		for i in range(len(imgs)):
