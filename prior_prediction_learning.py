@@ -28,9 +28,6 @@ DEBUG = False
 #went back to editing 5-18-18		
 
 
-
-
-
 #testing script for these purposes should write out test predictions, but also spread for all values 
 #(runs one net--to evaluate spread for multiple clusters we will call this multiple times)
 def evaluate(net_opts,checkpoint_dir,partition):
@@ -105,36 +102,7 @@ def evaluate(net_opts,checkpoint_dir,partition):
 	
 	sess.close()
 	double_print("Done.",text_log)
-
-
-#TODO OUT OF DATE
-def train_on_clusters(paths,net_opts):
-	"Trains a network on the entire dataset, then recurses into a sub-directory and fine-tunes a copy on each specified cluster within that dataset."
 	
-	#TODO: you will need a new graph for every train, which will require constructing a new data_loader
-	
-	#global train
-	train_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
-	val_img_names = csvr.readall(paths['train_name_file'],csvr.READ_STR)
-	training(paths,net_opts,train_img_names,val_img_names)
-	
-	train_clusters = csvr.readall(paths['train_clusters_file'],csvr.READ_INT)
-	val_clusters = csvr.readall(paths['val_clusters_file'],csvr.READ_INT)
-	num_clust = np.max(train_clusters)
-	for clust in range(clusters):
-	
-		clust_opts = dict(net_opts)
-		clust_paths = dict(paths)
-		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
-		clust_checkpoint_dir = clust_dir
-		if not os.path.exists(clust_dir):
-			copyanything(global_dir,clust_dir)
-		clust_opts['max_iter'] = net_opts['max_iter']*2
-		
-		clust_train_img_names = [train_img_names[n] for n in len(train_img_names) if train_clusters[n] == clust]
-		clust_val_img_names = [val_img_names[n] for n in len(val_img_names) if val_clusters[n] == clust]
-		
-		training(clust_paths,clust_opts,clust_train_img_names,clust_val_img_names)
 	
 def training(net_opts,checkpoint_dir):
 	"Train the actual network here. Can restart training from checkpoint if stopped.\
@@ -240,7 +208,7 @@ def training(net_opts,checkpoint_dir):
 				# evenly into val set size, we'll be missing a few validation images from each set. Not necessarily the same ones each time.
 				# if we have a large val set, this should not have any noticeable impact on training, excpet when we're using val stats to make
 				# sure the network is actually changing. This is a casualty of making the code work nicely with both TFRecords and feed_dicts.
-				feed_dict = data_loader.feed_dict(partition_enum.VAL,batch_size=batch_size)  
+				feed_dict = data_loader.feed_dict(partition_enum.VAL,batch_size=step_sz)  
 				feed_dict[is_train] = False        
 				#feed_dict = build_feed_dict(data_loader,network,range(v_ind,min(num_val,v_ind+step_sz)),partition_enum.VAL,net_opts)
 
@@ -313,3 +281,26 @@ def training(net_opts,checkpoint_dir):
 		
 	sess.close()
 	double_print("Done.",text_log)
+	
+
+def train_on_clusters(net_opts,checkpoint_dir):
+	"Recurses into a sub-directory OF AN ALREADY-TRAINED NETWORK and fine-tunes a copy on each specified cluster within that dataset. Be careful to specifiy a limited number of training iterations for this one!"
+	for clust in range(net_opts['num_clusters']):
+		clust_net_opts = net_opts.copy()
+		clust_net_opts['cluster'] = clust
+		clust_net_opts['max_iter'] = net_opts['max_iter']*2
+		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
+		if not os.path.exists(clust_dir):
+			copyanything(chec,clust_dir)
+		training(clust_net_opts, clust_dir)
+
+		
+def evaluate_on_clusters(net_opts,checkpoint_dir,partition):
+	"Recurses into the trained sub-directories of a network, which were fine-tuned on clusters using train_on_clusters, and evaluates each."
+	for clust in range(net_opts['num_clusters']):
+		clust_net_opts = net_opts.copy()
+		clust_net_opts['cluster'] = clust
+		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
+		assert(os.path.exists(clust_dir))
+		evaluate(clust_net_opts, clust_dir, partition)
+

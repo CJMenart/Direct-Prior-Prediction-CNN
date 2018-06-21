@@ -4,7 +4,7 @@ from data_loader import *
 from my_read_mat import *
 import scipy.io as sio
 import os
-import partition_enum
+import partition_enum as pe
 import tensorflow as tf
 import random
 from img_util import *
@@ -25,9 +25,18 @@ class CVL2018DataLoader(IDataLoader):
     self._seg_target = tf.placeholder(tf.int64,[None,None,None]) #batch,width,height
   
     self._cur_epoch_indices = {}
-    for part in partition_enum.SPLITS:
-      self._cur_epoch_indices[part] = []
+	
+	#we will loop through all indices, unless running on a cluster, in which case we run through a subset.
+    if net_opts['num_clusters'] is None:
+      for part in pe.SPLITS:
+        self._epoch_indices[part] = list(range(self.num_data_items(partition)))
+	else:
+      self._epoch_indices[pe.TRAIN],self_epoch_indices[pe.VAL] = read_matfile('clusters_%d' % net_opts['cluster'],['train_cluster_ind','val_cluster_ind'])
+	  self._epoch_indices[pe.TEST] = list(range(self.num_data_items(pe.TEST)))
 	  
+	for part in pe.SPLITS:
+        self._cur_epoch_indices[part] = []
+		
     #save img sizing function
     self._size_imgs = lambda img,truth: size_imgs(img,truth,net_opts)
 
@@ -54,13 +63,13 @@ class CVL2018DataLoader(IDataLoader):
   #preserved for legacy--variety of tests and utilities take advantage of power to pull out data directly
   #so we just took advantage of it for feed_dict b/c it made sense
   def img_and_truth(self,ind,partition):
-    if partition == partition_enum.TEST:
+    if partition == pe.TEST:
       assert ind <= self._num_test
       return self._img_and_truth(ind,'TestImgs','test')
-    elif partition == partition_enum.VAL:
+    elif partition == pe.VAL:
       assert ind <= self._num_val  
       return self._img_and_truth(ind,'ValImgs','val')
-    elif partition == partition_enum.TRAIN:
+    elif partition == pe.TRAIN:
       assert ind <= self._num_train
       return self._img_and_truth(ind,'TrainImgs','train')
     else:
@@ -70,11 +79,11 @@ class CVL2018DataLoader(IDataLoader):
     return self._num_labels
     
   def num_data_items(self,partition):
-    if partition == partition_enum.TRAIN:
+    if partition == pe.TRAIN:
       return self._num_train
-    if partition == partition_enum.TEST:
+    if partition == pe.TEST:
       return self._num_test
-    if partition == partition_enum.VAL:
+    if partition == pe.VAL:
       return self._num_val
       
   #we have not implemented methods for remapping here
@@ -99,5 +108,5 @@ class CVL2018DataLoader(IDataLoader):
     if len(self._cur_epoch_indices[partition]) == 0:
       if DEBUG:
         print('re-filling epoch indices.')
-      self._cur_epoch_indices[partition] = list(range(self.num_data_items(partition)))
+      self._cur_epoch_indices[partition] = list(self._epoch_indices[partition])
     return self._cur_epoch_indices[partition].pop(random.randint(0,len(self._cur_epoch_indices[partition])-1))

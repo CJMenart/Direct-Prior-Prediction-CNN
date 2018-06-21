@@ -24,6 +24,7 @@ DAT_TYPE = tf.float32
 class CVL2018TFRecordDataLoader(IDataLoader):
 
 	def __init__(self, net_opts):
+		assert (net_opts['num_clusters'] is None) #cannot do subcluster of data
 		self._base_fcn_weight_dir = net_opts['base_fcn_weight_dir']
 		(self._num_test,self._num_train,self._num_val,self._num_labels) = read_matfile(os.path.join(net_opts['dataset_dir'],'dataset_info.mat'),['num_test','num_train','num_val','num_labels'])
 		

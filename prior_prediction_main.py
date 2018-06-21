@@ -4,6 +4,7 @@ import sys
 import os
 import numpy as np
 import argparse
+import partition_enum as pe
 
 #There is one required positional paramter, the directory to save checkpoints in.
 #NOTE: intean command-line arguments are integers here--there's no great way to do it with argparse.
@@ -18,7 +19,7 @@ if __name__ == '__main__':
 	parser.add_argument("--is_using_nesterov",type=int,default=False)
 	parser.add_argument("--batch_size",type=int,default=1)
 	parser.add_argument("--learn_rate",type=float,default=1e-3)
-	parser.add_argument("--is_eval_mode",type=int,default=False)
+	parser.add_argument("--is_eval_mode",type=str,default=None)
 	parser.add_argument("--max_iter",type=int,default=1000000)
 	parser.add_argument("--iter_end_only_training",type=int,default=1200)
 	parser.add_argument("--is_clipped_gradients",type=int,default=False)
@@ -35,6 +36,7 @@ if __name__ == '__main__':
 	parser.add_argument("--fcn_weight_file",type=str,default='_')
 	parser.add_argument("--img_sizing_method",type=str,default='pad_input')
 	parser.add_argument("--is_fc_batchnorm",type=int,default=False)
+	parser.add_argument("--num_clusters",type=int,default=None)
 	
 	#path stuff--something here will probably be required
 	parser.add_argument("--data_loader_type",type=str,default="CVL_2018")
@@ -79,6 +81,7 @@ if __name__ == '__main__':
 	net_opts['num_dropout_eval_reps'] = 32
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
 	net_opts['standard_image_size'] = [32*15+1,32*15+1]
+	net_opts['num_clusters'] = args.num_clusters
 	
 	net_opts['img_sizing_method'] = args.img_sizing_method
 	assert(	net_opts['img_sizing_method'] == 'run_img_by_img' or 	#may use to avoid all possible im distortions for ims of different size, but slower
@@ -86,7 +89,19 @@ if __name__ == '__main__':
 			net_opts['img_sizing_method'] == 'pad_input')           #quicker than running image by image, but may mess with batch norm if aspect ratios are crazy different
 			
 	#TODO probably will neeed more switch cases in future
-	if args.is_eval_mode:
-		net.testing(paths,net_opts)
+	if args.is_eval_mode is None:
+		if net_opts['num_clusters'] is None: #untested
+			net.training(net_opts,args.checkpoint_dir)
+		else:
+			net.train_on_clusters(net_opts,args.checkpoint_dir)
 	else:
-		net.training(net_opts,args.checkpoint_dir)
+		if net_opts['num_clusters'] is None: #untested
+			net.evaluate(net_opts,args.checkpoint_dir,pe.TEST)
+			if args.is_eval_mode == 'all':
+				net.evaluate(net_opts,args.checkpoint_dir,pe.TRAIN)
+				net.evaluate(net_opts,args.checkpoint_dir,pe.VAL)
+		else:
+			net.evaluate_on_clusters(net_opts,args.checkpoint_dir)
+			if args.is_eval_mode == 'all':
+				net.evaluate_on_clusters(net_opts,args.checkpoint_dir,pe.TRAIN)
+				net.evaluate_on_clusters(net_opts,args.checkpoint_dir,pe.VAL)
