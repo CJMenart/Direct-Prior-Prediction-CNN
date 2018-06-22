@@ -74,7 +74,7 @@ if __name__ == '__main__':
 	net_opts['is_loss_weighted_by_class'] = args.is_loss_weighted_by_class
 	net_opts['base_net'] = args.base_net
 	net_opts['is_gpu'] = args.is_gpu
-	net_opts['err_thresh'] = 1e-3
+	net_opts['err_thresh'] = 1e-1
 	net_opts['fcn_weight_file'] = args.fcn_weight_file
 	net_opts['is_fc_batchnorm'] = args.is_fc_batchnorm
 	net_opts['iter_per_automatic_backup'] = 10000
