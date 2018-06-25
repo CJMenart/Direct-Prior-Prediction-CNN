@@ -33,7 +33,7 @@ def weighted_cross_entropy_loss(out,truth_vec,class_frequency,epsilon):
 
 	
 def kl_divergence_loss(out,truth_vec,epsilon):
-	return tf.reduce_sum(truth_vec*tf.log(tf.minimum(1.0,truth_vec/tf.minimum(1.0,out+epsilon)+epsilon)))
+	return tf.reduce_mean(tf.reduce_sum(truth_vec*tf.log(truth_vec/tf.minimum(1.0,out+epsilon)+epsilon),axis=-1))
 	
 	
 def segmentation_accuracy(score_map,target,predict0):

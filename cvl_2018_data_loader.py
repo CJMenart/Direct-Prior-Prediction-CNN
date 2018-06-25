@@ -25,18 +25,19 @@ class CVL2018DataLoader(IDataLoader):
     self._seg_target = tf.placeholder(tf.int64,[None,None,None]) #batch,width,height
   
     self._cur_epoch_indices = {}
-	
-	#we will loop through all indices, unless running on a cluster, in which case we run through a subset.
+    self._epoch_indices = {}
+    
+    #we will loop through all indices, unless running on a cluster, in which case we run through a subset.
     if net_opts['num_clusters'] is None:
       for part in pe.SPLITS:
-        self._epoch_indices[part] = list(range(self.num_data_items(partition)))
-	else:
+        self._epoch_indices[part] = list(range(self.num_data_items(part)))
+    else:
       self._epoch_indices[pe.TRAIN],self_epoch_indices[pe.VAL] = read_matfile('clusters_%d' % net_opts['cluster'],['train_cluster_ind','val_cluster_ind'])
-	  self._epoch_indices[pe.TEST] = list(range(self.num_data_items(pe.TEST)))
-	  
-	for part in pe.SPLITS:
+      self._epoch_indices[pe.TEST] = list(range(self.num_data_items(pe.TEST)))
+      
+    for part in pe.SPLITS:
         self._cur_epoch_indices[part] = []
-		
+        
     #save img sizing function
     self._size_imgs = lambda img,truth: size_imgs(img,truth,net_opts)
 

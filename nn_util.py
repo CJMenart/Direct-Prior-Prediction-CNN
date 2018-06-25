@@ -34,6 +34,7 @@ def pool_score_map_to_prior(target,net_opts):
 	"downsamples the processed 4d target tensor to form a prior. Can form binary or histogram prior"
 	if net_opts['is_target_distribution']:
 		target = tf.reduce_mean(target,[1,2])
+		target = target/tf.maximum(tf.reduce_sum(target,axis=-1,keep_dims=True),net_opts['epsilon']) #must renorm because unlabeled pixels will result in not-a-full-distribution
 	else:
 		target = tf.reduce_max(target,[1,2])
 	return target

@@ -15,3 +15,4 @@ def get_latest_model(checkpoint_dir):
 			latest_model = matches[-1]
 		if latest_model:
 			latest_model = os.path.join(checkpoint_dir,latest_model[:-5])
+	return latest_model

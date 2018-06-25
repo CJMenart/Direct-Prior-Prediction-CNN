@@ -48,10 +48,9 @@ def evaluate(net_opts,checkpoint_dir,partition):
 		sess = tf.InteractiveSession(config=config)
 		
 	if net_opts['data_loader_type'] == 'CVL_2018':
-		data_loader = CVL2018DataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'])	
+		data_loader = CVL2018DataLoader(net_opts)	
 	elif net_opts['data_loader_type'] == 'TFRecord':
-		data_loader = CVL2018TFRecordDataLoader(net_opts['base_fcn_weight_dir'],net_opts['dataset_dir'],
-			1 if net_opts['img_sizing_method'] == 'run_img_by_img' else net_opts['batch_size'])
+		data_loader = CVL2018TFRecordDataLoader(net_opts)
 	else:
 		raise Exception("data_loader type not recognized.")
 	
