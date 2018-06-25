@@ -9,8 +9,7 @@ DAT_TYPE = tf.float32
 def fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
 	in_chann = in_feat.shape.as_list()[-1]
 	weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
-	biases = tf.Variable(tf.constant(0.01, shape=[out_chann], dtype=DAT_TYPE),
-			 trainable=True, name='biases')
+	biases = tf.get_variable('biases',[out_chann],DAT_TYPE,initializer=tf.constant_initializer(0.01))
 		
 	activation = tf.matmul(in_feat,weights)
 	activation = tf.nn.bias_add(activation, biases)

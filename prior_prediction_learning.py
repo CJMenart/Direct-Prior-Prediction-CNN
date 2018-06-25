@@ -66,6 +66,11 @@ def evaluate(net_opts,checkpoint_dir,partition):
 	
 	best_val_loss = tf.Variable(sys.float_info.max,trainable=False,name="best_val_loss")
 	
+	if True:
+		trainable_vars = tf.trainable_variables()	
+		print("Trainable Variables:")
+		print(trainable_vars)
+		
 	saver = tf.train.Saver()	
 	latest_model = get_latest_model(checkpoint_dir)
 	if latest_model:
@@ -167,6 +172,12 @@ def training(net_opts,checkpoint_dir):
 	summary_writer = tf.summary.FileWriter(checkpoint_dir,graph=sess.graph)	
 	saver = tf.train.Saver()
 	
+	if DEBUG:
+		trainable_vars = tf.trainable_variables()	
+		print("Trainable Variables:")
+		print(trainable_vars)
+
+		
 	latest_model = get_latest_model(checkpoint_dir)
 	if latest_model:
 		tf.global_variables_initializer().run()
@@ -179,12 +190,7 @@ def training(net_opts,checkpoint_dir):
 		tf.global_variables_initializer().run()
 		network.load_weights(os.path.join(data_loader.base_fcn_weight_dir(),net_opts['fcn_weight_file']),sess)
 	model_name = os.path.join(checkpoint_dir,net_opts['model_name'])
-		
-	trainable_vars = tf.trainable_variables()	
-	if DEBUG:
-		print("Trainable Variables:")
-		print(trainable_vars)
-			
+					
 	for iter in range(start,net_opts['max_iter']):
 		batch_size = net_opts['batch_size']
 		if iter == net_opts['iter_end_only_training']:
