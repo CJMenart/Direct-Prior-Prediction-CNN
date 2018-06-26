@@ -30,9 +30,10 @@ class PriorNet:
 		#we compute vector targets from full 2d map of target
 		self.processed_seg_target = expand_target_2d_to_3d(seg_target,num_labels)
 		self.prior_target = pool_score_map_to_prior(self.processed_seg_target,net_opts)
- 
+		activation_summary(self.prior_target,'prior_target')
 		
 		self.prior = self._prior_predictor(net_opts,num_labels)
+		activation_summary(self.prior,'prior')
 		self.direct_prior_loss = self._prior_loss(net_opts)
 		
 		#What's interesting is that if we didn't have to save and load softmax, but were performing remapping using a model in tensorflow that we ran, this memory limit
@@ -66,13 +67,14 @@ class PriorNet:
 			with tf.variable_scope('fc_%d' % lay) as scope:
 				print('scope:')
 				print(scope.name)
-				activation = fc_layer(in_feat,out_chann,net_opts,False)
+				activation = fc_layer(in_feat,out_chann,net_opts,is_train,False)
 				in_feat = activation
 				
 		out_chann = num_labels
 		with tf.variable_scope('fc_final') as scope:
 
-			activation = fc_layer(in_feat,out_chann,net_opts,True)
+			activation = fc_layer(in_feat,out_chann,net_opts,is_train,True)
+			activation_summary(activation,'final_activation')
 			
 			if net_opts['is_target_distribution']:
 				#activation = tf.nn.relu(activation, name='activation')

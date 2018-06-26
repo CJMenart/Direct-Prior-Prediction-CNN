@@ -37,6 +37,7 @@ if __name__ == '__main__':
 	parser.add_argument("--img_sizing_method",type=str,default='pad_input')
 	parser.add_argument("--is_fc_batchnorm",type=int,default=False)
 	parser.add_argument("--num_clusters",type=int,default=None)
+	parser.add_argument("--is_eval_spread",type=int,default=True)
 	
 	#path stuff--something here will probably be required
 	parser.add_argument("--data_loader_type",type=str,default="CVL_2018")
@@ -79,6 +80,8 @@ if __name__ == '__main__':
 	net_opts['is_fc_batchnorm'] = args.is_fc_batchnorm
 	net_opts['iter_per_automatic_backup'] = 10000
 	net_opts['num_dropout_eval_reps'] = 32
+	net_opts['is_eval_spread'] = args.is_eval_spread
+
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
 	net_opts['standard_image_size'] = [32*15+1,32*15+1]
 	net_opts['num_clusters'] = args.num_clusters
@@ -90,18 +93,29 @@ if __name__ == '__main__':
 			
 	#TODO probably will neeed more switch cases in future
 	if args.is_eval_mode is None:
-		if net_opts['num_clusters'] is None: #untested
+		if net_opts['num_clusters'] is None: 
 			net.training(net_opts,args.checkpoint_dir)
 		else:
 			net.train_on_clusters(net_opts,args.checkpoint_dir)
 	else:
-		if net_opts['num_clusters'] is None: #untested
-			net.evaluate(net_opts,args.checkpoint_dir,pe.TEST)
-			if args.is_eval_mode == 'all':
-				net.evaluate(net_opts,args.checkpoint_dir,pe.TRAIN)
-				net.evaluate(net_opts,args.checkpoint_dir,pe.VAL)
+		eval_partitions = []
+		if args.is_eval_mode == 'all':
+			eval_partitions = [pe.TEST,pe.TRAIN,pe.VAL]
+		elif args.is_eval_mode == 'test':
+			eval_partitions = [pe.TEST]
+		elif args.is_eval_mode == 'train':
+			print('Evaluating on train.')
+			eval_partitions = [pe.TRAIN]
+		elif args.is_eval_mode == 'val':
+			eval_partitions = [pe.VAL]
 		else:
-			net.evaluate_on_clusters(net_opts,args.checkpoint_dir)
-			if args.is_eval_mode == 'all':
-				net.evaluate_on_clusters(net_opts,args.checkpoint_dir,pe.TRAIN)
-				net.evaluate_on_clusters(net_opts,args.checkpoint_dir,pe.VAL)
+			eval_partitions = [pe.TEST]
+			
+		if net_opts['num_clusters'] is None: 
+			for part in eval_partitions:
+				net.evaluate(net_opts,args.checkpoint_dir,part)
+				tf.reset_default_graph()
+		else:
+			for part in eval_partitions:
+				net.evaluate_on_clusters(net_opts,args.checkpoint_dir,part)
+				tf.reset_default_graph()

@@ -15,9 +15,10 @@ DAT_TYPE = tf.float32
 
 class CVL2018DataLoader(IDataLoader):
 
-  def __init__(self, net_opts):
+  def __init__(self, net_opts, is_shuffled):
     self._base_fcn_weight_dir = net_opts['base_fcn_weight_dir']
     self._dataset_dir = net_opts['dataset_dir']
+    self._is_shuffled = is_shuffled
   
     (self._num_test,self._num_train,self._num_val,self._num_labels) = read_matfile(os.path.join(self._dataset_dir,'dataset_info.mat'),['num_test','num_train','num_val','num_labels'])
             
@@ -32,7 +33,9 @@ class CVL2018DataLoader(IDataLoader):
       for part in pe.SPLITS:
         self._epoch_indices[part] = list(range(self.num_data_items(part)))
     else:
-      self._epoch_indices[pe.TRAIN],self_epoch_indices[pe.VAL] = read_matfile('clusters_%d' % net_opts['cluster'],['train_cluster_ind','val_cluster_ind'])
+      tr_ind, v_ind = read_matfile(os.path.join(self._dataset_dir,'clusters_%d.mat' % net_opts['num_clusters']),['train_cluster_ind','val_cluster_ind'])
+      self._epoch_indices[pe.TRAIN] = [i for i in range(self._num_train) if tr_ind[i] == net_opts['cluster']+1]
+      self._epoch_indices[pe.VAL] = [i for i in range(self._num_val) if v_ind[i] == net_opts['cluster']]
       self._epoch_indices[pe.TEST] = list(range(self.num_data_items(pe.TEST)))
       
     for part in pe.SPLITS:
@@ -110,4 +113,7 @@ class CVL2018DataLoader(IDataLoader):
       if DEBUG:
         print('re-filling epoch indices.')
       self._cur_epoch_indices[partition] = list(self._epoch_indices[partition])
-    return self._cur_epoch_indices[partition].pop(random.randint(0,len(self._cur_epoch_indices[partition])-1))
+    if self._is_shuffled:
+      return self._cur_epoch_indices[partition].pop(random.randint(0,len(self._cur_epoch_indices[partition])-1))
+    else:
+      return self._cur_epoch_indices[partition].pop(0)

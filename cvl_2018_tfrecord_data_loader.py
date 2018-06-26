@@ -23,7 +23,7 @@ DAT_TYPE = tf.float32
 
 class CVL2018TFRecordDataLoader(IDataLoader):
 
-	def __init__(self, net_opts):
+	def __init__(self, net_opts, is_shuffled):
 		assert (net_opts['num_clusters'] is None) #cannot do subcluster of data
 		self._base_fcn_weight_dir = net_opts['base_fcn_weight_dir']
 		(self._num_test,self._num_train,self._num_val,self._num_labels) = read_matfile(os.path.join(net_opts['dataset_dir'],'dataset_info.mat'),['num_test','num_train','num_val','num_labels'])
@@ -53,7 +53,7 @@ class CVL2018TFRecordDataLoader(IDataLoader):
 		for split,splitname in zip([pe.SPLITS,pe.SPLITNAMES]):
 			tfrecord = tf.data.TFRecordDataset(os.path.join(net_opts['dataset_dir'],'TFRecords','%s.tfrecord' % splitname))
 			dataset = tfrecord.map(_parse_function)
-			if split == pe.TRAIN:
+			if is_shuffled:
 				dataset = dataset.shuffle(buffer_size=1000)
 			if split == pe.TEST:
 				dataset = dataset.batch(1)

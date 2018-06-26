@@ -16,7 +16,7 @@ def fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
 	
 	#you may not wish to relu on final layer
 	if not is_last_layer:
-		activation = tf.nn.relu(activation, name='activation')
+		activation = leaky_relu(activation)
 		if net_opts['is_fc_batchnorm']:
 			activation = tf.layers.batch_normalization(activation,training=is_train,name='fcbn',renorm=True)
 		#NOTE dropout will be on at all times under this model b/c of testing spread/stat of data is how we want to do things. Be careful. Consider adding placeholders to control.
@@ -27,6 +27,10 @@ def fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
 	tf.add_to_collection('fresh',biases)
 	
 	return activation
+	
+
+def leaky_relu(x):
+	return tf.maximum(x,0.05*x)
 	
 	
 def pool_score_map_to_prior(target,net_opts):

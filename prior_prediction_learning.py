@@ -48,9 +48,9 @@ def evaluate(net_opts,checkpoint_dir,partition):
 		sess = tf.InteractiveSession(config=config)
 		
 	if net_opts['data_loader_type'] == 'CVL_2018':
-		data_loader = CVL2018DataLoader(net_opts)	
+		data_loader = CVL2018DataLoader(net_opts,False)	
 	elif net_opts['data_loader_type'] == 'TFRecord':
-		data_loader = CVL2018TFRecordDataLoader(net_opts)
+		data_loader = CVL2018TFRecordDataLoader(net_opts,False)
 	else:
 		raise Exception("data_loader type not recognized.")
 	
@@ -89,21 +89,29 @@ def evaluate(net_opts,checkpoint_dir,partition):
 		feed_dict = data_loader.feed_dict(partition,batch_size=1)  
 		feed_dict[is_train] = False
 
-		prior_ev, spread_ev = sess.run([final_network.prior, spread], feed_dict=feed_dict)
-		priors.append(prior_ev)
-		spreads.append(spread_ev)
-
-	fname = os.path.join(checkpointDir,"%s_priors.csv" % partition_enum.SPLITNAMES[partition])
+		if net_opts['is_eval_spread']:
+			prior_ev, spread_ev = sess.run([final_network.prior, spread], feed_dict=feed_dict)
+			print(np.squeeze(spread_ev))
+			spreads.append(np.squeeze(spread_ev))
+		else:
+			prior_ev = sess.run(final_network.prior, feed_dict=feed_dict)		
+		priors.append(np.squeeze(prior_ev))
+		
+		double_print('Image %d' % t_ind,text_log)
+		#double_print(priors,text_log)
+		
+	fname = os.path.join(checkpoint_dir,"%s_priors.csv" % partition_enum.SPLITNAMES[partition])
 	file = open(fname,"w+")
 	for line in priors:
 		print(','.join(["%.6f"%n for n in line]),file=file)
 	file.close()
-	fname = os.path.join(checkpointDir,"%s_spreads.csv" % partition_enum.SPLITNAMES[partition])
-	file = open(fname,"w+")
-	for line in spreads:
-		print(','.join(["%.6f"%n for n in line]),file=file)
-	file.close()	
-	
+	if net_opts['is_eval_spread']:
+		fname = os.path.join(checkpoint_dir,"%s_spreads.csv" % partition_enum.SPLITNAMES[partition])
+		file = open(fname,"w+")
+		for line in spreads:
+			print(','.join(["%.6f"%n for n in line]),file=file)
+		file.close()	
+		
 	sess.close()
 	double_print("Done.",text_log)
 	
@@ -129,9 +137,9 @@ def training(net_opts,checkpoint_dir):
 		sess = tf.InteractiveSession(config=config)
 		
 	if net_opts['data_loader_type'] == 'CVL_2018':
-		data_loader = CVL2018DataLoader(net_opts)	
+		data_loader = CVL2018DataLoader(net_opts,True)	
 	elif net_opts['data_loader_type'] == 'TFRecord':
-		data_loader = CVL2018TFRecordDataLoader(net_opts)
+		data_loader = CVL2018TFRecordDataLoader(net_opts,True)
 	else:
 		raise Exception("data_loader type not recognized.")
 	
@@ -291,18 +299,20 @@ def training(net_opts,checkpoint_dir):
 def train_on_clusters(net_opts,checkpoint_dir):
 	"Recurses into a sub-directory OF AN ALREADY-TRAINED NETWORK and fine-tunes a copy on each specified cluster within that dataset. Be careful to specifiy a limited number of training iterations for this one!"
 	for clust in range(net_opts['num_clusters']):
+		tf.reset_default_graph()
 		clust_net_opts = net_opts.copy()
 		clust_net_opts['cluster'] = clust
 		clust_net_opts['max_iter'] = net_opts['max_iter']*2
 		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
 		if not os.path.exists(clust_dir):
-			copyanything(chec,clust_dir)
+			copyanything(checkpoint_dir,clust_dir)
 		training(clust_net_opts, clust_dir)
 
 		
 def evaluate_on_clusters(net_opts,checkpoint_dir,partition):
 	"Recurses into the trained sub-directories of a network, which were fine-tuned on clusters using train_on_clusters, and evaluates each."
 	for clust in range(net_opts['num_clusters']):
+		tf.reset_default_graph()
 		clust_net_opts = net_opts.copy()
 		clust_net_opts['cluster'] = clust
 		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
