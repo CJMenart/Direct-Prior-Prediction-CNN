@@ -38,6 +38,8 @@ if __name__ == '__main__':
 	parser.add_argument("--is_fc_batchnorm",type=int,default=False)
 	parser.add_argument("--num_clusters",type=int,default=None)
 	parser.add_argument("--is_eval_spread",type=int,default=True)
+	parser.add_argument("--base_fcn_pooling_mode",type=str,default='avg')
+	parser.add_argument("--base_fcn_pooling_size",type=int,default=1)
 	
 	#path stuff--something here will probably be required
 	parser.add_argument("--data_loader_type",type=str,default="CVL_2018")
@@ -80,6 +82,8 @@ if __name__ == '__main__':
 	net_opts['is_fc_batchnorm'] = args.is_fc_batchnorm
 	net_opts['iter_per_automatic_backup'] = 10000
 	net_opts['num_dropout_eval_reps'] = 32
+	net_opts['base_fcn_pooling_mode'] = args.base_fcn_pooling_mode
+	net_opts['base_fcn_pooling_size'] = args.base_fcn_pooling_size
 	net_opts['is_eval_spread'] = args.is_eval_spread
 
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments

@@ -50,7 +50,7 @@ class CVL2018TFRecordDataLoader(IDataLoader):
 
 		self._img_splits = {}
 		self._truth_splits = {}
-		for split,splitname in zip([pe.SPLITS,pe.SPLITNAMES]):
+		for split,splitname in zip(pe.SPLITS,pe.SPLITNAMES):
 			tfrecord = tf.data.TFRecordDataset(os.path.join(net_opts['dataset_dir'],'TFRecords','%s.tfrecord' % splitname))
 			dataset = tfrecord.map(_parse_function)
 			if is_shuffled:

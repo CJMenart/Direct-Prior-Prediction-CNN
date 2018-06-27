@@ -24,7 +24,9 @@ class PriorNet:
   
 		self._base_net = BaseFCN(net_opts,inputs,is_train)
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
-		self._base_net_vectorized = tf.reduce_mean(self._base_net.out,[1,2])
+		self._base_net_vectorized = pool_to_fixed(self._base_net.out, net_opts['base_fcn_pooling_size'], net_opts['base_fcn_pooling_mode'], vectorize=True)
+		if net_opts['base_fcn_pooling_mode'] == 'max' and not net_opts['is_fc_batchnorm']:
+			print('WARNING: You should not max-pool the base FCN without batch norm active.')
 		if net_opts['is_fc_batchnorm']:
 			self._base_net_vectorized = tf.layers.batch_normalization(self._base_net_vectorized,training=is_train,name='basevec-bn',renorm=True)
 		activation_summary(self._base_net_vectorized,'base_net_vectorized')
