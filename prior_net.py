@@ -64,13 +64,10 @@ class PriorNet:
 	def _prior_predictor(self,net_opts,num_labels,is_train):
 		"portion of the network that we add. Very simpe. Assume base_fcn is pooled into something vector-like, add FC layers, non-linearity, other whistles, then cap to number of classes."
 
-		print('_prior_predictor')
 		in_feat = self._base_net_vectorized
 		out_chann = net_opts['hid_layer_width']
 		for lay in range(net_opts['num_hid_layers']):
 			with tf.variable_scope('fc_%d' % lay) as scope:
-				print('scope:')
-				print(scope.name)
 				activation = fc_layer(in_feat,out_chann,net_opts,is_train,False)
 				in_feat = activation
 				
