@@ -24,7 +24,9 @@ class PriorNet:
   
 		self._base_net = BaseFCN(net_opts,inputs,is_train)
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
-		self._base_net_vectorized = tf.reduce_max(self._base_net.out,[1,2])
+		self._base_net_vectorized = tf.reduce_mean(self._base_net.out,[1,2])
+		if net_opts['is_fc_batchnorm']:
+			self._base_net_vectorized = tf.layers.batch_normalization(self._base_net_vectorized,training=is_train,name='basevec-bn',renorm=True)
 		activation_summary(self._base_net_vectorized,'base_net_vectorized')
 		self.class_frequency = class_frequency
 		#we compute vector targets from full 2d map of target
@@ -32,7 +34,7 @@ class PriorNet:
 		self.prior_target = pool_score_map_to_prior(self.processed_seg_target,net_opts)
 		activation_summary(self.prior_target,'prior_target')
 		
-		self.prior = self._prior_predictor(net_opts,num_labels)
+		self.prior = self._prior_predictor(net_opts,num_labels,is_train)
 		activation_summary(self.prior,'prior')
 		self.direct_prior_loss = self._prior_loss(net_opts)
 		
@@ -57,7 +59,7 @@ class PriorNet:
 		"Initializes (or re-initializes) the pre-trained base model of the network from file. Should be called after running global initializer and before using."
 		self._base_net.load_weights(init_weight_fname,sess)
 		
-	def _prior_predictor(self,net_opts,num_labels):
+	def _prior_predictor(self,net_opts,num_labels,is_train):
 		"portion of the network that we add. Very simpe. Assume base_fcn is pooled into something vector-like, add FC layers, non-linearity, other whistles, then cap to number of classes."
 
 		print('_prior_predictor')
