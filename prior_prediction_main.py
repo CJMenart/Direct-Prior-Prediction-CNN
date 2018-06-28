@@ -5,6 +5,7 @@ import os
 import numpy as np
 import argparse
 import partition_enum as pe
+import tensorflow as tf
 
 #There is one required positional paramter, the directory to save checkpoints in.
 #NOTE: intean command-line arguments are integers here--there's no great way to do it with argparse.
@@ -33,6 +34,7 @@ if __name__ == '__main__':
 	parser.add_argument("--is_loss_weighted_by_class",type=int,default=False)
 	parser.add_argument("--base_net",type=str,default='resnet_v1_152')
 	parser.add_argument("--is_gpu",type=int,default=True)
+	parser.add_argument("--gpu",type=int,default=1)
 	parser.add_argument("--fcn_weight_file",type=str,default='_')
 	parser.add_argument("--img_sizing_method",type=str,default='pad_input')
 	parser.add_argument("--is_fc_batchnorm",type=int,default=False)
@@ -54,6 +56,7 @@ if __name__ == '__main__':
 	net_opts['data_loader_type'] = args.data_loader_type
 	net_opts['base_fcn_weight_dir'] = args.base_fcn_weight_dir
 	net_opts['dataset_dir'] = args.dataset_dir
+	net_opts['gpu'] = args.gpu
 	
 	net_opts['model_name'] = 'DirectPriorNet'	
 	net_opts['batches_per_val_check'] = args.batches_per_val_check
@@ -85,7 +88,7 @@ if __name__ == '__main__':
 	net_opts['base_fcn_pooling_mode'] = args.base_fcn_pooling_mode
 	net_opts['base_fcn_pooling_size'] = args.base_fcn_pooling_size
 	net_opts['is_eval_spread'] = args.is_eval_spread
-
+	
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
 	net_opts['standard_image_size'] = [32*15+1,32*15+1]
 	net_opts['num_clusters'] = args.num_clusters

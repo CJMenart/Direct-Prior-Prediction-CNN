@@ -39,6 +39,7 @@ def evaluate(net_opts,checkpoint_dir,partition):
 		
 	#first, start TF session and construct data_loader so we can begin setting up data
 	if net_opts['is_gpu']:
+		os.environ["CUDA_VISIBLE_DEVICES"] = str(net_opts['gpu'])
 		sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
 	else:
 		#debug to force CPU mode!
@@ -128,6 +129,7 @@ def training(net_opts,checkpoint_dir):
 		
 	#first, start TF session and construct data_loader so we can begin setting up data
 	if net_opts['is_gpu']:
+		os.environ["CUDA_VISIBLE_DEVICES"] = str(net_opts['gpu'])
 		sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
 	else:
 		#debug to force CPU mode!

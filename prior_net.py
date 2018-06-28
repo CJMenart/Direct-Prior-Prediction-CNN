@@ -28,7 +28,7 @@ class PriorNet:
 		if net_opts['base_fcn_pooling_mode'] == 'max' and not net_opts['is_fc_batchnorm']:
 			print('WARNING: You should not max-pool the base FCN without batch norm active.')
 		if net_opts['is_fc_batchnorm']:
-			self._base_net_vectorized = tf.layers.batch_normalization(self._base_net_vectorized,training=is_train,name='basevec-bn',renorm=True)
+			self._base_net_vectorized = tf.layers.batch_normalization(self._base_net_vectorized,training=is_train,name='basevec-fcbn',renorm=True)
 		activation_summary(self._base_net_vectorized,'base_net_vectorized')
 		self.class_frequency = class_frequency
 		#we compute vector targets from full 2d map of target
@@ -75,12 +75,12 @@ class PriorNet:
 		with tf.variable_scope('fc_final') as scope:
 
 			activation = fc_layer(in_feat,out_chann,net_opts,is_train,True)
-			activation_summary(activation,'final_activation')
+			#activation_summary(activation,'final_activation')
 			
 			if net_opts['is_target_distribution']:
 				#activation = tf.nn.relu(activation, name='activation')
 				#activation = activation/tf.reduce_sum(activation,-1)
-				activation = tf.nn.softmax(activation,axis=-1)
+				activation = tf.nn.softmax(activation,-1)
 			else: #assumed we have binary target if not distribution
 				activation = tf.nn.sigmoid(activation)
 					
