@@ -24,7 +24,7 @@ class PriorNet:
   
 		self._base_net = BaseFCN(net_opts,inputs,is_train)
 		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
-		self._base_net_vectorized = pool_to_fixed(self._base_net.out, net_opts['base_fcn_pooling_size'], net_opts['base_fcn_pooling_mode'], vectorize=True)
+		self._base_net_vectorized = pyramid_pool(self._base_net.out,[net_opts['fcn_pool_sz_a'],net_opts['fcn_pool_sz_b'],net_opts['fcn_pool_sz_c']],net_opts['base_fcn_pooling_mode'])
 		if net_opts['base_fcn_pooling_mode'] == 'max' and not net_opts['is_fc_batchnorm']:
 			print('WARNING: You should not max-pool the base FCN without batch norm active.')
 		if net_opts['is_fc_batchnorm']:
@@ -92,7 +92,9 @@ class PriorNet:
 			if net_opts['is_loss_weighted_by_class']:
 				warnings.warn('full cross-entropy loss on distribution should not/will not be weighted by class frequency.')
 			#TODO options for various loss
-			return kl_divergence_loss(self.prior,self.prior_target,net_opts['epsilon'])
+			return chi_squared_loss(self.prior,self.prior_target,net_opts['epsilon'])
+			#return avg_one_inf_norm_loss(self.prior,self.prior_target)
+			#return kl_divergence_loss(self.prior,self.prior_target,net_opts['epsilon'])
 		else:
 			#weighted cross-entropy loss. OR not-weighted cross-entropy loss
 			if net_opts['is_loss_weighted_by_class']:

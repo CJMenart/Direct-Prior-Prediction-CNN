@@ -91,11 +91,12 @@ def evaluate(net_opts,checkpoint_dir,partition):
 		feed_dict[is_train] = False
 
 		if net_opts['is_eval_spread']:
-			prior_ev, spread_ev = sess.run([final_network.prior, spread], feed_dict=feed_dict)
+			prior_ev, spread_ev, loss, err = sess.run([final_network.prior, spread, final_network.loss, final_network.prior_err], feed_dict=feed_dict)
 			print(np.squeeze(spread_ev))
 			spreads.append(np.squeeze(spread_ev))
 		else:
-			prior_ev = sess.run(final_network.prior, feed_dict=feed_dict)		
+			prior_ev, loss, err = sess.run([final_network.prior, final_network.loss, final_network.prior_err], feed_dict=feed_dict)		
+		print('Loss: ',loss,'err: ',err)
 		priors.append(np.squeeze(prior_ev))
 		
 		double_print('Image %d' % t_ind,text_log)
@@ -211,7 +212,7 @@ def training(net_opts,checkpoint_dir):
 			val_loss = 0
 			val_err = 0
 			val_acc = 0
-			val_num = 0
+			val_num_batch = 0
 			step_sz = 1 if net_opts['img_sizing_method']=='run_img_by_img' else batch_size
 			num_val = data_loader.num_data_items(partition_enum.VAL)
 			if DEBUG:
@@ -234,11 +235,11 @@ def training(net_opts,checkpoint_dir):
 				val_loss += loss
 				val_err += err
 				val_acc += acc
-				val_num += step_sz
+				val_num_batch += 1
 				
-			val_loss = np.mean(val_loss)/val_num
-			val_err = np.mean(val_err)/val_num
-			val_acc = np.mean(val_acc)/val_num
+			val_loss = val_loss / val_num_batch
+			val_err = np.mean(val_err)/(val_num_batch*step_sz)
+			val_acc = np.mean(val_acc)/val_num_batch
 			double_print('step %d: val loss %.5f' % (iter, val_loss),text_log)
 			double_print('step %d: val error ~= %.5f' % (iter, val_err),text_log)
 			double_print('step %d: val acc ~= %.5f' % (iter,val_acc),text_log)
@@ -280,7 +281,7 @@ def training(net_opts,checkpoint_dir):
 		train_op_handler.check_gradients(iter,sess)
 		train_op_handler.post_batch_actions(iter,sess)
 		
-		loss = loss/batch_size #avg loss per element, to print
+		loss = loss
 		err = err/batch_size
 		acc = acc/batch_size
 		double_print('step %d: loss %.3f, p-err %.3f, acc = %.3f' % (iter, loss,err,acc),text_log)

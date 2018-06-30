@@ -35,7 +35,7 @@ class CVL2018DataLoader(IDataLoader):
     else:
       tr_ind, v_ind = read_matfile(os.path.join(self._dataset_dir,'clusters_%d.mat' % net_opts['num_clusters']),['train_cluster_ind','val_cluster_ind'])
       self._epoch_indices[pe.TRAIN] = [i for i in range(self._num_train) if tr_ind[i] == net_opts['cluster']+1]
-      self._epoch_indices[pe.VAL] = [i for i in range(self._num_val) if v_ind[i] == net_opts['cluster']]
+      self._epoch_indices[pe.VAL] = [i for i in range(self._num_val) if v_ind[i] == net_opts['cluster']+1]
       self._epoch_indices[pe.TEST] = list(range(self.num_data_items(pe.TEST)))
       
     for part in pe.SPLITS:

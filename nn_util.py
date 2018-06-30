@@ -94,3 +94,12 @@ def pool_to_fixed(inputs, output_size, mode, vectorize=False):
 		result = tf.reshape(result,[b,output_size,output_size,f])
 		#print(result.shape.as_list())
 	return result
+	
+
+def pyramid_pool(inputs,pool_sizes,mode):
+	"Builds a pyramid-pool of a convolutional 4d feature by vecotrizing poolings down to different fixes sizes and concatenating. Similar to PSPSNet."	
+	pyramid = pool_to_fixed(inputs, pool_sizes[0], mode, vectorize=True)
+	for l in range(1,len(pool_sizes)):
+		if pool_sizes[l] is not None:
+			pyramid = tf.concat([pyramid,pool_to_fixed(inputs, pool_sizes[l], mode, vectorize=True)],-1)
+	return pyramid

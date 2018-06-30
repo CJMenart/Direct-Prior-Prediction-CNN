@@ -35,6 +35,18 @@ def weighted_cross_entropy_loss(out,truth_vec,class_frequency,epsilon):
 def kl_divergence_loss(out,truth_vec,epsilon):
 	return tf.reduce_mean(tf.reduce_sum(truth_vec*tf.log(truth_vec/tf.minimum(1.0,out+epsilon)+epsilon),axis=-1))
 	
+
+def avg_one_inf_norm_loss(out,truth_vec):
+	"The average of the L1 and L-Infinity norms of the absolute distance between estimation and target. Researched by\
+	Mo Akbar as effective for arbitrary distribution-matching. But I am suspicious of the work, and think this may only be safe with adaptive gradients."
+	abs_dist = tf.abs(truth_vec-out)
+	return tf.reduce_mean((tf.reduce_sum(abs_dist,axis=-1) + tf.reduce_max(abs_dist,axis=-1) )/2)
+
+	
+def chi_squared_loss(out,truth_vec,epsilon):
+	"Symmetric version of chi-squared, used for distributions. Ranges 0-2. Mo Akbar also says this one is good."
+	return tf.reduce_mean(tf.reduce_sum(tf.pow(out-truth_vec,2)/(out+truth_vec+epsilon),axis=-1))
+	
 	
 def segmentation_accuracy(score_map,target,predict0):
 	"determine the accuracy of a semantic segmentation for an image. Set predict0 to true iff you are included the class 0."
