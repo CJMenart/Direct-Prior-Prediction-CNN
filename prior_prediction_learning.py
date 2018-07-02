@@ -300,15 +300,18 @@ def training(net_opts,checkpoint_dir):
 	
 
 def train_on_clusters(net_opts,checkpoint_dir):
-	"Recurses into a sub-directory OF AN ALREADY-TRAINED NETWORK and fine-tunes a copy on each specified cluster within that dataset. Be careful to specifiy a limited number of training iterations for this one!"
+	"Recurses into sub-directories OF AN ALREADY-TRAINED NETWORK and fine-tunes a copy on each specified cluster within that dataset. Be careful to specifiy a limited number of training iterations for this one!"
+	for clust in range(net_opts['num_clusters']):
+		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
+		if not os.path.exists(clust_dir):
+			copyanything(checkpoint_dir,clust_dir)
+			
 	for clust in range(net_opts['num_clusters']):
 		tf.reset_default_graph()
 		clust_net_opts = net_opts.copy()
 		clust_net_opts['cluster'] = clust
 		clust_net_opts['max_iter'] = net_opts['max_iter']*2
 		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
-		if not os.path.exists(clust_dir):
-			copyanything(checkpoint_dir,clust_dir)
 		training(clust_net_opts, clust_dir)
 
 		
@@ -317,7 +320,7 @@ def evaluate_on_clusters(net_opts,checkpoint_dir,partition):
 	for clust in range(net_opts['num_clusters']):
 		tf.reset_default_graph()
 		clust_net_opts = net_opts.copy()
-		clust_net_opts['cluster'] = clust
+		clust_net_opts['cluster'] = clust #doesn't actually matter. We eval on everything
 		clust_dir = os.path.join(checkpoint_dir,'clust_%d' % clust)
 		assert(os.path.exists(clust_dir))
 		evaluate(clust_net_opts, clust_dir, partition)

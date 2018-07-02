@@ -23,13 +23,14 @@ class PriorNet:
 	def __init__(self,net_opts,num_labels,inputs,seg_target,is_train,class_frequency=None,remap_target=None,remap_base_prob=None,map_mat=None):
   
 		self._base_net = BaseFCN(net_opts,inputs,is_train)
-		#TODO: consider changing the type of pooling? Max pooling or something? I'd concat both but too many params
-		self._base_net_vectorized = pyramid_pool(self._base_net.out,[net_opts['fcn_pool_sz_a'],net_opts['fcn_pool_sz_b'],net_opts['fcn_pool_sz_c']],net_opts['base_fcn_pooling_mode'])
+		self._base_net_vectorized = pyramid_pool(self._base_net.out,[net_opts['fcn_pool_sz_a'],net_opts['fcn_pool_sz_b'],net_opts['fcn_pool_sz_c']],
+			net_opts['base_fcn_pooling_mode'],net_opts,net_opts['pyramid_pool_dim'])
 		if net_opts['base_fcn_pooling_mode'] == 'max' and not net_opts['is_fc_batchnorm']:
 			print('WARNING: You should not max-pool the base FCN without batch norm active.')
 		if net_opts['is_fc_batchnorm']:
 			self._base_net_vectorized = tf.layers.batch_normalization(self._base_net_vectorized,training=is_train,name='basevec-fcbn',renorm=True)
 		activation_summary(self._base_net_vectorized,'base_net_vectorized')
+		
 		self.class_frequency = class_frequency
 		#we compute vector targets from full 2d map of target
 		self.processed_seg_target = expand_target_2d_to_3d(seg_target,num_labels)

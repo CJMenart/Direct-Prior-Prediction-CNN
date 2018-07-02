@@ -29,7 +29,7 @@ class CVL2018DataLoader(IDataLoader):
     self._epoch_indices = {}
     
     #we will loop through all indices, unless running on a cluster, in which case we run through a subset.
-    if net_opts['num_clusters'] is None:
+    if net_opts['num_clusters'] is None or net_opts['is_eval_mode']:
       for part in pe.SPLITS:
         self._epoch_indices[part] = list(range(self.num_data_items(part)))
     else:

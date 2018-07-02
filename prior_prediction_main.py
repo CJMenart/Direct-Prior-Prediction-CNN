@@ -44,6 +44,7 @@ if __name__ == '__main__':
 	parser.add_argument("--fcn_pool_sz_a",type=int,default=1)
 	parser.add_argument("--fcn_pool_sz_b",type=int,default=None)
 	parser.add_argument("--fcn_pool_sz_c",type=int,default=None)
+	parser.add_argument("--pyramid_pool_dim",type=int,default=None)
 	
 	#path stuff--something here will probably be required
 	parser.add_argument("--data_loader_type",type=str,default="CVL_2018")
@@ -92,6 +93,8 @@ if __name__ == '__main__':
 	net_opts['fcn_pool_sz_b'] = args.fcn_pool_sz_b
 	net_opts['fcn_pool_sz_c'] = args.fcn_pool_sz_c
 	net_opts['is_eval_spread'] = args.is_eval_spread
+	net_opts['is_eval_mode'] = args.is_eval_mode
+	net_opts['pyramid_pool_dim'] = args.pyramid_pool_dim
 	
 	#resnet works best for dense prediction with size C*32 + 1, according to code comments
 	net_opts['standard_image_size'] = [32*15+1,32*15+1]
