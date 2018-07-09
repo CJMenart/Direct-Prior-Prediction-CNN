@@ -79,9 +79,11 @@ class PriorNet:
 			#activation_summary(activation,'final_activation')
 			
 			if net_opts['is_target_distribution']:
-				#activation = tf.nn.relu(activation, name='activation')
-				#activation = activation/tf.reduce_sum(activation,-1)
-				activation = tf.nn.softmax(activation,-1)
+				if net_opts['is_softmax']:
+					activation = tf.nn.softmax(activation,-1)
+				else:
+					activation = tf.nn.relu(activation, name='activation')
+					activation = activation/tf.reduce_sum(activation,-1)
 			else: #assumed we have binary target if not distribution
 				activation = tf.nn.sigmoid(activation)
 					
@@ -93,9 +95,14 @@ class PriorNet:
 			if net_opts['is_loss_weighted_by_class']:
 				warnings.warn('full cross-entropy loss on distribution should not/will not be weighted by class frequency.')
 			#TODO options for various loss
-			return chi_squared_loss(self.prior,self.prior_target,net_opts['epsilon'])
-			#return avg_one_inf_norm_loss(self.prior,self.prior_target)
-			#return kl_divergence_loss(self.prior,self.prior_target,net_opts['epsilon'])
+			if net_opts['dist_loss'] == 'chi_squared':
+				return chi_squared_loss(self.prior,self.prior_target,net_opts['epsilon'])
+			if net_opts['dist_loss'] == 'cross_entropy':
+				return categorical_cross_entropy_loss(self.prior,self.prior_target,net_opts['epsilon'])
+			if net_opts['dist_loss'] == 'kl_divergence':
+				return kl_divergence_loss(self.prior,self.prior_target,net_opts['epsilon'])
+			else:
+				raise Exception('Unrecognized loss function ID.')
 		else:
 			#weighted cross-entropy loss. OR not-weighted cross-entropy loss
 			if net_opts['is_loss_weighted_by_class']:
