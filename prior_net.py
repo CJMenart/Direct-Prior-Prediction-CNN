@@ -69,14 +69,17 @@ class PriorNet:
 		out_chann = net_opts['hid_layer_width']
 		for lay in range(net_opts['num_hid_layers']):
 			with tf.variable_scope('fc_%d' % lay) as scope:
-				activation = fc_layer(in_feat,out_chann,net_opts,is_train,False)
+				if net_opts['is_grouped_matmul']:
+					activation = grouped_matmul_layer(in_feat,out_chann,32,16,net_opts,is_train)
+				else:
+					activation = fc_layer(in_feat,out_chann,net_opts,is_train,False)
+				
 				in_feat = activation
 				
 		out_chann = num_labels
 		with tf.variable_scope('fc_final') as scope:
 
 			activation = fc_layer(in_feat,out_chann,net_opts,is_train,True)
-			#activation_summary(activation,'final_activation')
 			
 			if net_opts['is_target_distribution']:
 				if net_opts['is_softmax']:

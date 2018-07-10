@@ -114,3 +114,76 @@ def pyramid_pool(inputs,pool_sizes,mode,net_opts,shrink_dim=None):
 			else:
 				pyramid = pool_to_fixed(temp_in, pool_sizes[l], mode, vectorize=True)
 	return pyramid
+
+	
+#TODO add batch norm updates to fresh collection by getting current scope--useful for reducing coupling in future
+def fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
+	in_chann = in_feat.shape.as_list()[-1]
+	weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
+	biases = tf.get_variable('biases',[out_chann],DAT_TYPE,initializer=tf.constant_initializer(0.01))
+	activation_summary(weights)
+	activation_summary(biases)
+		
+	activation = tf.matmul(in_feat,weights)
+	activation = tf.nn.bias_add(activation, biases)
+	
+	#you may not wish to relu on final layer
+	if not is_last_layer:
+		activation_summary(activation,'weighted_sum')
+		activation = leaky_relu(activation)
+		if net_opts['is_fc_batchnorm']:
+			activation = tf.layers.batch_normalization(activation,training=is_train,name='fcbn',renorm=True)
+		#NOTE dropout will be on at all times under this model b/c of testing spread/stat of data is how we want to do things. Be careful. Consider adding placeholders to control.
+		activation = tf.nn.dropout(activation,1-net_opts['dropout_prob'])
+			
+	activation_summary(activation,'activation')
+	#we use this because all the weights WE create are added to this collection so they can be trained on their own.
+	tf.add_to_collection('fresh',weights)
+	tf.add_to_collection('fresh',biases)
+	
+	return activation
+
+	
+def grouped_matmul_layer(in_feat,out_chann,group_sz,group_num,net_opts,is_train,is_last_layer=False):
+	"Based on 'grouped convolutions' from ResNeXt."
+	in_chann = in_feat.shape.as_list()[-1]
+	output = None
+	
+	for group in range(group_num):
+		down_weights = tf.get_variable('down_weights_%d' % group,[in_chann,group_sz],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
+		reduced = tf.matmul(in_feat,down_weights)
+		
+		biases = tf.get_variable('biases_%d' % group,[group_sz],DAT_TYPE,initializer=tf.constant_initializer(0.01))
+		weights = tf.get_variable('weights_%d' % group,[group_sz,group_sz],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/group_sz)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
+		activation = tf.matmul(reduced,weights)
+		activation = tf.nn.bias_add(activation,biases)
+		if not is_last_layer:
+			activation = leaky_relu(activation)
+		
+		up_weights = tf.get_variable('up_weights_%d' % group,[group_sz,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/group_sz)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
+		expanded = tf.matmul(activation,up_weights)
+		if output:
+			output = output + expanded
+		else:
+			output = expanded
+		
+		#we use this because all the weights WE create are added to this collection so they can be trained on their own.
+		tf.add_to_collection('fresh',up_weights)
+		tf.add_to_collection('fresh',down_weights)			
+		tf.add_to_collection('fresh',weights)
+		tf.add_to_collection('fresh',biases)
+		
+		activation_summary(up_weights)
+		activation_summary(down_weights)
+		activation_summary(weights)
+		activation_summary(biases)
+		
+	if not is_last_layer:
+		if net_opts['is_fc_batchnorm']:
+			output = tf.layers.batch_normalization(output,training=is_train,name='fcbn',renorm=True)
+		#NOTE dropout will be on at all times under this model b/c of testing spread/stat of data is how we want to do things. Be careful. Consider adding placeholders to control.
+		output = tf.nn.dropout(output,1-net_opts['dropout_prob'])
+			
+	activation_summary(output,'grouped_matmul_output')
+	
+	return output
