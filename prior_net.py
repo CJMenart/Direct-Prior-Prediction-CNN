@@ -70,7 +70,7 @@ class PriorNet:
 		for lay in range(net_opts['num_hid_layers']):
 			with tf.variable_scope('fc_%d' % lay) as scope:
 				if net_opts['is_grouped_matmul']:
-					activation = grouped_matmul_layer(in_feat,out_chann,32,16,net_opts,is_train)
+					activation = grouped_matmul_layer(in_feat,out_chann,32,32,net_opts,is_train)
 				else:
 					activation = fc_layer(in_feat,out_chann,net_opts,is_train,False)
 				

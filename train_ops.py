@@ -53,8 +53,9 @@ class TrainOpHandler:
 			print(update_ops)
 		self._accumulate = tf.group(*self._accumulate, all_updates)
 		
-		fresh_updates = tf.group(*[op for op in update_ops if 'fcbn' in op.name])
-		self._accumulate_fresh = tf.group(*self._accumulate_fresh, fresh_updates)
+		if net_opts['iter_end_only_training'] > 0:
+			fresh_updates = tf.group(*[op for op in update_ops if 'fcbn' in op.name])
+			self._accumulate_fresh = tf.group(*self._accumulate_fresh, fresh_updates)
 		
 		self._iter_end_only_training = net_opts['iter_end_only_training']
 		
@@ -92,6 +93,6 @@ class TrainOpHandler:
 			else:
 				for g in (self._accum_gradients[-10:]):
 					grad = sess.run(g,feed_dict={})
-					print('gradients:',text_log)
-					print(grad,text_log)
+					print('gradients:')
+					print(grad)
 				

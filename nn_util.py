@@ -134,7 +134,7 @@ def grouped_matmul_layer(in_feat,out_chann,group_sz,group_num,net_opts,is_train,
 		
 		up_weights = tf.get_variable('up_weights_%d' % group,[group_sz,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/group_sz)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
 		expanded = tf.matmul(activation,up_weights)
-		if output:
+		if output is not None:
 			output = output + expanded
 		else:
 			output = expanded
