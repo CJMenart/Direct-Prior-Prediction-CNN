@@ -6,7 +6,6 @@ from activation_summary import *
 #TODO conv layer
 DAT_TYPE = tf.float32
 
-#TODO add batch norm updates to fresh collection by getting current scope--useful for reducing coupling in future
 def fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
 	in_chann = in_feat.shape.as_list()[-1]
 	weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
@@ -161,6 +160,28 @@ def grouped_matmul_layer(in_feat,out_chann,group_sz,group_num,net_opts,is_train,
 	return output
 	
 
+def conv_layer(feat,out_chann,net_opts,is_train,is_last_layer=False):
+	"Exploring a theme similar to that of grouped convolutions--which are sort of a form of sparse connection--we try\
+	sparse convolutions. Filters are sparsely connected to each other--there is no low-rank decomposition. These connections\
+	are random."
+	in_chann = feat.shape.as_list()[-1]		
+	conv_weights = tf.get_variable('conv_weights',[3,3,in_chann,out_chann],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/3*3*in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight'])) 
+	bias = tf.get_variable('conv_bias',[out_chann],tf.float32,initializer=tf.constant_initializer(0.01))
+	activation_summary(conv_weights)
+	activation_summary(bias)
+	
+	feat = tf.nn.conv2d(feat,conv_weights,[1,1,1,1],'SAME')
+	feat = tf.nn.bias_add(feat,bias)
+	if not is_last_layer:
+		feat = leaky_relu(feat)
+		feat = tf.layers.batch_normalization(feat,training=is_train,renorm=True)
+		
+	tf.add_to_collection('fresh',conv_weights)
+	tf.add_to_collection('fresh',bias)
+	
+	return feat
+	
+	
 def sparse_conv_layer(feat,out_chann,net_opts,is_train,is_last_layer=False):
 	"Exploring a theme similar to that of grouped convolutions--which are sort of a form of sparse connection--we try\
 	sparse convolutions. Filters are sparsely connected to each other--there is no low-rank decomposition. These connections\
@@ -168,8 +189,12 @@ def sparse_conv_layer(feat,out_chann,net_opts,is_train,is_last_layer=False):
 	in_chann = feat.shape.as_list()[-1]		
 	conv_weights = tf.get_variable('conv_weights',[3,3,in_chann,out_chann],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/3*3*in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight'])) 
 	bias = tf.get_variable('conv_bias',[out_chann],tf.float32,initializer=tf.constant_initializer(0.01))
+	activation_summary(conv_weights)
+	activation_summary(bias)
+	
 	sparsity_gate_value = np.round(np.random.uniform(size=[1,1,in_chann,out_chann])) #50% keep rate
-	sparsity_gate = tf.get_variable('sparsity_gate',[1,1,in_chann,out_chann],tf.int64,initializer=tf.constant_initializer(sparsity_gate_value),trainable=False)
+	#print(sparsity_gate_value)
+	sparsity_gate = tf.get_variable('sparsity_gate',[1,1,in_chann,out_chann],tf.float32,initializer=tf.constant_initializer(sparsity_gate_value),trainable=False)
 	sparsity_gate_expanded = tf.tile(sparsity_gate,[3,3,1,1])
 	
 	feat = tf.nn.conv2d(feat,conv_weights*sparsity_gate_expanded,[1,1,1,1],'SAME')
@@ -182,3 +207,33 @@ def sparse_conv_layer(feat,out_chann,net_opts,is_train,is_last_layer=False):
 	tf.add_to_collection('fresh',bias)
 	
 	return feat
+	
+
+def sparse_fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
+	in_chann = in_feat.shape.as_list()[-1]
+	weights = tf.get_variable('weights',[in_chann,out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
+	biases = tf.get_variable('biases',[out_chann],DAT_TYPE,initializer=tf.constant_initializer(0.01))
+	activation_summary(weights)
+	activation_summary(biases)
+		
+	sparsity_gate_value = np.round(np.random.uniform(size=[in_chann,out_chann])) #50% keep rate
+	#print(sparsity_gate_value)
+	sparsity_gate = tf.get_variable('sparsity_gate',[in_chann,out_chann],tf.float32,initializer=tf.constant_initializer(sparsity_gate_value),trainable=False)
+	activation = tf.matmul(in_feat,weights*sparsity_gate)
+	activation = tf.nn.bias_add(activation, biases)
+	
+	#you may not wish to relu on final layer
+	if not is_last_layer:
+		activation_summary(activation,'weighted_sum')
+		activation = leaky_relu(activation)
+		if net_opts['is_fc_batchnorm']:
+			activation = tf.layers.batch_normalization(activation,training=is_train,name='fcbn',renorm=True)
+		#NOTE dropout will be on at all times under this model b/c of testing spread/stat of data is how we want to do things. Be careful. Consider adding placeholders to control.
+		activation = tf.nn.dropout(activation,1-net_opts['dropout_prob'])
+			
+	activation_summary(activation,'activation')
+	#we use this because all the weights WE create are added to this collection so they can be trained on their own.
+	tf.add_to_collection('fresh',weights)
+	tf.add_to_collection('fresh',biases)
+	
+	return activation
