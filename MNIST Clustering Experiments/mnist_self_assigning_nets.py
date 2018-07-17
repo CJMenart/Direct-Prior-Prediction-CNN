@@ -54,7 +54,7 @@ def mnist_expr(gpu=None):
 			feat = tf.nn.bias_add(feat,final_bias)	
 			nets.append(tf.nn.softmax(feat,-1))
 			
-			in_clust_truth = expanded_truths[CLASS_LISTS[net]]
+			in_clust_truth = tf.gather(expanded_truths,CLASS_LISTS[net],axis=-1)			
 			target = tf.one_hot(len(CLASS_LISTS[net]-1,len(CLASS_LISTS[net]))*(1-tf.reduce_sum(in_clust_truth,-1))  + in_clust_truth
 			losses.append(cross_entropy_loss(nets[net], target)
 			total_loss += losses[net]
