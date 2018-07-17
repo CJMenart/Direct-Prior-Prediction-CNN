@@ -43,15 +43,15 @@ def mnist_expr(gpu=None):
 	
 	for digit in range(NCLASS):
 		
-		with tf.variable_scope(type):
-			feat = net_architecture(inputs[type],is_train)
+		with tf.variable_scope(str(digit)):
+			feat = net_architecture(inputs,is_train)
 			final_weights = tf.get_variable('final_weights',[FC_WIDTH,1],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/FC_WIDTH)))
 			final_bias = tf.get_variable('final_bias',[1],tf.float32,initializer=tf.constant_initializer(0.01))
 			feat = tf.matmul(feat,final_weights)
 			feat = tf.nn.bias_add(feat,final_bias)	
-			one_num_nets.append(tf.nn.sigmoid(feat,-1))
+			one_num_nets.append(tf.nn.sigmoid(feat))
 			
-			losses.append(cross_entropy_loss(one_num_nets[digit],tf.equal(truths[digit],digit),1e-8))
+			losses.append(cross_entropy_loss(one_num_nets[digit],tf.cast(tf.equal(truths[digit],digit),tf.float32),1e-8))
 			total_loss += losses[digit]
 
 	#'all' net
@@ -63,7 +63,7 @@ def mnist_expr(gpu=None):
 		feat = tf.nn.bias_add(feat,final_bias)			
 		all_net = tf.nn.softmax(feat,-1)
 		
-		losses.append(categorical_cross_entropy_loss(all_net,tf.one_hot(truths[type],NCLASS),1e-8))
+		losses.append(categorical_cross_entropy_loss(all_net,tf.one_hot(truths,NCLASS),1e-8))
 		total_loss += losses[-1]
 			
 	train = tf.train.AdamOptimizer(1e-4).minimize(total_loss)
@@ -85,17 +85,17 @@ def get_batch(data,labels):
 	
 	#allowed_inds = np.array([i for i in range(len(labels)) if labels[i] in class_set])
 	inds = []
-	for i in range(batch_size):
-		if len(INDEX_LISTS[0]) == 0:
-			INDEX_LISTS[0] = [i for i in range(len(labels))]
-		inds.append(INDEX_LISTS[0].pop(random.randint(0,len(INDEX_LISTS[0])-1)))
+	for i in range(BATCH_SIZE):
+		if len(INDEX_LIST[0]) == 0:
+			INDEX_LIST[0] = [i for i in range(len(labels))]
+		inds.append(INDEX_LIST[0].pop(random.randint(0,len(INDEX_LIST[0])-1)))
 	
 	truths = labels[inds]
 	return(data[inds,:,:,:],truths)
 
 	
 def eval(one_num_nets,all_net,eval_data,eval_labels,inputs,truths,is_train,sess):
-	acc_num = []*NCLASS
+	acc_num = [[]]*NCLASS
 	acc_all = []
 	
 	for item in range(len(eval_labels)):
@@ -104,17 +104,16 @@ def eval(one_num_nets,all_net,eval_data,eval_labels,inputs,truths,is_train,sess)
 		feed_dict[inputs] = eval_data[np.newaxis,item,:,:,:]
 		feed_dict[truths] = eval_labels[np.newaxis,item]
 
-		ans = []
-		
-		**ans, ans_all = sess.run([**ans,acc_all],feed_dict=feed_dict)
+		ans = [-1]*NCLASS
+		ans[0], ans[1], ans[2], ans[3], ans[4], ans[5], ans[6], ans[7], ans[8], ans[9], ans_all = sess.run([one_num_nets[0],one_num_nets[1],one_num_nets[2],one_num_nets[3],one_num_nets[4],one_num_nets[5],one_num_nets[6],one_num_nets[7],one_num_nets[8],one_num_nets[9],all_net],feed_dict=feed_dict)
 		for digit in range(NCLASS):
-				acc_num[digit].append(np.round(ans[digit],-1)==(eval_labels[item]==digit))
+			acc_num[digit].append(np.round(ans[digit],-1)==(eval_labels[item]==digit))
 		acc_all.append(np.argmax(ans_all,-1) == eval_labels[item])
 
-	mean_acc_num = []*NCLASS
+	mean_acc_num = [-1]*NCLASS
 	for digit in range(NCLASS):
 		mean_acc_num[digit] = np.mean(acc_num[digit])
-		print('Net %d: Acc %.4f',%(digit,mean_acc_num[digit])
+		print('Net %d: Acc %.4f' %(digit,mean_acc_num[digit]))
 	mean_acc_all = np.mean(acc_all)
 	print('Net ALL: Acc %.4f' % mean_acc_all)
 	file_print(','.join(["%.5f"%mean_acc_num[digit] for digit in range(NCLASS)] + ['%.5f'%mean_acc_all]),'err.csv')
