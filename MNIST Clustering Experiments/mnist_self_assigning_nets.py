@@ -40,13 +40,13 @@ def mnist_expr(gpu=None):
 	is_train = tf.placeholder(tf.bool,None)
 	inputs = tf.placeholder(tf.float32,[None,28,28,1])
 	truths = tf.placeholder(tf.int64,[None])
-	expanded_truths = tf.one_hot(truths,NCLASS)
+	expanded_truths = tf.one_hot(truths,NCLASS+1)
 	total_loss = 0
 	
 	for net in range(len(CLASS_LISTS)):
 		
 		with tf.variable_scope(str(net)):
-			NOUT = len(CLASS_LISTS[net]+1)
+			NOUT = len(CLASS_LISTS[net])+1
 			feat = net_architecture(inputs,is_train)
 			final_weights = tf.get_variable('final_weights',[FC_WIDTH,NOUT],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/FC_WIDTH)))
 			final_bias = tf.get_variable('final_bias',[NOUT],tf.float32,initializer=tf.constant_initializer(0.01))
@@ -54,9 +54,10 @@ def mnist_expr(gpu=None):
 			feat = tf.nn.bias_add(feat,final_bias)	
 			nets.append(tf.nn.softmax(feat,-1))
 			
-			in_clust_truth = tf.gather(expanded_truths,CLASS_LISTS[net],axis=-1)			
-			target = tf.one_hot(len(CLASS_LISTS[net]-1,len(CLASS_LISTS[net]))*(1-tf.reduce_sum(in_clust_truth,-1))  + in_clust_truth
-			losses.append(cross_entropy_loss(nets[net], target)
+			in_clust_truth = tf.gather(expanded_truths,CLASS_LISTS[net]+[-1],axis=-1)			
+			target = tf.tile(tf.expand_dims(tf.one_hot(len(CLASS_LISTS[net]),len(CLASS_LISTS[net])+1),0),[BATCH_SIZE,1])*tf.expand_dims(1-tf.reduce_sum(in_clust_truth,-1),1) + in_clust_truth
+			print(target)
+			losses.append(cross_entropy_loss(nets[net], target,1e-8))
 			total_loss += losses[net]
 			
 	train = tf.train.AdamOptimizer(1e-4).minimize(total_loss)
@@ -64,7 +65,7 @@ def mnist_expr(gpu=None):
 	train = tf.group(train,*update_ops)
 	tf.global_variables_initializer().run()
 
-	for iter in range(20001):
+	for iter in range(40001):
 		feed_dict = {is_train:True}
 		feed_dict[inputs],feed_dict[truths] = get_batch(train_data,train_labels)
 		sess.run(train,feed_dict=feed_dict)
@@ -88,8 +89,9 @@ def get_batch(data,labels):
 
 	
 def eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess):
-	acc_counts = [[]]*len(nets)
-	accs = [[]]*len(nets)
+	acc_counts = [[] for i in range(len(nets))]
+	accs = [[] for i in range(len(nets))]
+	acc_final = []
 	
 	for item in range(len(eval_labels)):
 		feed_dict = {is_train:False}		
@@ -99,12 +101,19 @@ def eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess):
 		ans = sess.run(nets,feed_dict=feed_dict)
 		for net in range(len(nets)):
 			acc_counts[net].append((eval_labels[item] not in CLASS_LISTS[net]) if (np.argmax(ans[net])==len(CLASS_LISTS[net])) else CLASS_LISTS[net][np.argmax(ans[net])]==eval_labels[item])
+		final_ans = np.concatenate((ans[0][:,:-1],ans[1][:,:-1]),axis=1)
+		print(final_ans)
+		sorting = np.concatenate((CLASS_LISTS[0],CLASS_LISTS[1]),axis=0)
+		sorting = np.argsort(sorting)
+		final_ans = final_ans[:,sorting]
+		acc_final.append(np.argmax(final_ans) == eval_labels[item])
 					
 	for net in range(len(nets)):
 		accs[net] = np.mean(acc_counts[net])
 		print('Net %d: Acc %.4f' %(net,accs[net]))
+	print('Final System: Acc %.4f' % np.mean(acc_final))
 	
-	file_print(','.join(["%.5f"%accs[net] for net in range(len(nets))]),'err.csv')
+	file_print(','.join(["%.5f"%accs[net] for net in range(len(nets))] + ['.%5f' % np.mean(acc_final)]),'err.csv')
 	
 	
 def net_architecture(inputs,is_train):	
