@@ -65,7 +65,7 @@ def mnist_expr(gpu=None):
 	train = tf.group(train,*update_ops)
 	tf.global_variables_initializer().run()
 
-	for iter in range(40001):
+	for iter in range(100001):
 		feed_dict = {is_train:True}
 		feed_dict[inputs],feed_dict[truths] = get_batch(train_data,train_labels)
 		sess.run(train,feed_dict=feed_dict)
@@ -113,7 +113,7 @@ def eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess):
 		print('Net %d: Acc %.4f' %(net,accs[net]))
 	print('Final System: Acc %.4f' % np.mean(acc_final))
 	
-	file_print(','.join(["%.5f"%accs[net] for net in range(len(nets))] + ['.%5f' % np.mean(acc_final)]),'err.csv')
+	file_print(','.join(["%.5f"%accs[net] for net in range(len(nets))] + ['.%5f' % np.mean(acc_final)]),'self_assign_err.csv')
 	
 	
 def net_architecture(inputs,is_train):	

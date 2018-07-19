@@ -1,7 +1,8 @@
 #this is an experiment designed to run two networks on cleanly divided clusters of the
 #MNIST dataset, to see if running nets on a portion of data allows you to learn that
 #data better. We use the variance when evaluating with dropout to decide which networks
-#to use. We also show each network 'a few' pieces of data from outside its cluster. BTW this is patently insane.
+#to use. We also show each network 'a few' pieces of data from outside its cluster and assign random labels
+#to that ground truth. This is the most insane I've ever seen.
 
 from loss_functions import *
 import numpy as np
@@ -22,7 +23,7 @@ CLASS_SETS['ROUND'] = [0,2,3,6,8]
 CLASS_SETS['STRAIGHT'] = [1,4,5,7,9]
 ITER_PER_EVAL = 1000
 CLASS_NET_TYPES = ['ALL','ROUND','STRAIGHT']
-LEAK_CHANCE = 0.16  #make sure is less than 50%...
+LEAK_CHANCE = 0.02  #make sure is less than 50%...
 
 def mnist_expr(gpu=None):
 
@@ -89,7 +90,6 @@ def mnist_expr(gpu=None):
 def get_batch(data,labels,type):
 	"get batch with correct restrictions"
 	
-	#allowed_inds = np.array([i for i in range(len(labels)) if labels[i] in class_set])
 	inds = []
 	for i in range(BATCH_SIZE):
 		if len(INDEX_LISTS[type]) == 0:
@@ -98,7 +98,8 @@ def get_batch(data,labels,type):
 			print(len(INDEX_LISTS[type]))
 		inds.append(INDEX_LISTS[type].pop(random.randint(0,len(INDEX_LISTS[type])-1)))
 	
-	truths = labels[inds]
+	out_of_domain_digits = [i for i in range(NCLASS) if not i in CLASS_SETS[type]]
+	truths = [i if i not in out_of_domain_digits else out_of_domain_digits[np.random.randint(0,len(out_of_domain_digits))] for i in labels[inds]]
 	return(data[inds,:,:,:],truths)
 
 	
@@ -150,8 +151,8 @@ def eval(nets,eval_data,eval_labels,inputs,truths,is_train,variance,sess):
 		in_spreads[type] = np.mean(in_spread_record[type])
 		out_spreads[type] = np.mean(out_spread_record[type])
 		print('Net %s: in-variance %.4f, out-variance %.4f' % (type,in_spreads[type],out_spreads[type]))
-	file_print(','.join(["%.5f"%accs[type] for type in CLASS_NET_TYPES+['CLUST','SYS']]),'leaky_dropout_%.3f_err.csv' % LEAK_CHANCE)
-	file_print(','.join(["%.5f"%in_spreads[type] for type in CLASS_NET_TYPES]) + ','.join(["%.5f"%out_spreads[type] for type in CLASS_NET_TYPES]),'leaky_dropout_%.3f_variance.csv' % LEAK_CHANCE)
+	file_print(','.join(["%.5f"%accs[type] for type in CLASS_NET_TYPES+['CLUST','SYS']]),'confused_dropout_%.3f_err.csv' % LEAK_CHANCE)
+	file_print(','.join(["%.5f"%in_spreads[type] for type in CLASS_NET_TYPES]) + ','.join(["%.5f"%out_spreads[type] for type in CLASS_NET_TYPES]),'confused_dropout_%.3f_variance.csv' % LEAK_CHANCE)
 
 	
 def clust_assignment_target(truth):
