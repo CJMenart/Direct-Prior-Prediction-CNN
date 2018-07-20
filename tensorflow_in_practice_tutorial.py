@@ -11,9 +11,9 @@ def hello_world():
 	hello = tf.constant('Hello World!')
 	sess = tf.InteractiveSession()
 	print(sess.run(hello))
+	sess.close()
 	
 	#Or
-	sess.close()
 	with tf.Session() as sess:
 		print(sess.run(hello))
 		
@@ -30,7 +30,7 @@ def hello_math():
 	output = tf.matmul(data,weights)
 	
 	#don't forget to initialize!
-	#tf.global_variables_initializer().run()
+	tf.global_variables_initializer().run()
 	print(sess.run(output))
 	sess.close()
 
@@ -40,7 +40,7 @@ def hello_overloading():
 	sess = tf.InteractiveSession()
 	
 	data = tf.constant([[-1,1,5,-5,20],[0,10,-10,-5,2]],dtype=tf.float32)
-	data_squared = tf.multiply(data,data)
+	data_squared = tf.multiply(data,data,name='data_squared')
 	data_squared_again = data*data
 		
 	#tf.global_variables_initializer().run()  #note this is not needed here
@@ -79,14 +79,14 @@ def hello_optimization():
 	output = tf.matmul(data,weights)
 	
 	#tf.pow broadcasts the scalar power, '2', to all elements of out array
-	loss = tf.pow(output - tf.constant([2,-2],dtype=tf.float32),2)
+	#loss = tf.pow(output - tf.constant([2,-2],dtype=tf.float32),2)
 	#don't forget to use reduce_sum to that loss is a scalar!
 	#loss = tf.reduce_sum(tf.pow(output - tf.constant([2,-2],dtype=tf.float32),2))
 	#watch out for automatic broadcasting!
-	#loss = tf.reduce_sum(tf.pow(output - tf.constant([[2],[-2]],dtype=tf.float32),2))
-	optimizer = tf.train.GradientDescentOptimizer(1e-2)
+	loss = tf.reduce_sum(tf.pow(output - tf.constant([[2],[-2]],dtype=tf.float32),2))
+	#optimizer = tf.train.GradientDescentOptimizer(1e-2)
 	#watch out for model divergence with high learning rates
-	#optimizer = tf.train.GradientDescentOptimizer(1e-4)
+	optimizer = tf.train.GradientDescentOptimizer(1e-4)
 	train = optimizer.minimize(loss)
 	#OR the below 2 ops are equivalent to 'train'--but allow you to insepct/manipulate gradients
 	gradients = optimizer.compute_gradients(loss)
@@ -102,7 +102,7 @@ def hello_optimization():
 		#print(sess.run(weights))
 	sess.close()
 	
-	
+
 def hello_batchnorm():
 	"Batch normalization is a common and powerful technique in deep learning today (~2018). Here's how you can do it in Tensorflow. This also introduces feed_dicts."
 	
@@ -147,18 +147,18 @@ def think_about_gradients():
 						  [0,0,1],
 						  [0,1,0],
 						  [1,0,0]],dtype=tf.float32)
-	weights = tf.get_variable('weights',[5,3],initializer=tf.truncated_normal_initializer(0,10)) #weights are significantly too large
+	weights = tf.get_variable('weights',[5,3],initializer=tf.truncated_normal_initializer(0,100)) #weights are significantly too large
 	activation = tf.matmul(data,weights)
 	output = tf.nn.softmax(activation,-1) #axis=-1 means 'apply softmax along the last (class) dimension, not the batch dimension.'
 	
-	cross_entropy_loss = tf.reduce_sum(-1.0*targets*tf.log(output))
+	#cross_entropy_loss = tf.reduce_sum(-1.0*targets*tf.log(output))
 	#ok, we need an epsilon value to prevent infinite loss
 	#cross_entropy_loss = tf.reduce_sum(-1.0*targets*tf.log(tf.maximum(output,1e-8)))
 	#If the output goes through the constant branch of tf.maximum, there is no gradient w.r.t variables!
-	#cross_entropy_loss = tf.reduce_sum(-1.0*targets*tf.log(tf.minimum(1.0,output+1e-8)))
+	cross_entropy_loss = tf.reduce_sum(-1.0*targets*tf.log(tf.minimum(1.0,output+1e-8)))
 	#remember--training models using gradient descent is finicky! Even the dead-simple linear model above cannot be learnt if the initial weights are in an inappropriate range! We need to reduce the standard deviation of the weights to learn successfully. For if the output is totally saturated into a bad regime, there may be no gradients, and no saving the model. But to a great degree batch norm helps with exactly this problem.
 	
-	optimizer = tf.train.GradientDescentOptimizer(1e-1)
+	optimizer = tf.train.GradientDescentOptimizer(1e-4)
 	gradients = optimizer.compute_gradients(cross_entropy_loss)
 	apply_grad = optimizer.apply_gradients(gradients)
 	
@@ -166,7 +166,7 @@ def think_about_gradients():
 	for iter in range(10000):
 		sess.run(apply_grad)
 		print(sess.run(output))
-		#print(sess.run(gradients))
+		print(sess.run(gradients))
 		print(sess.run(cross_entropy_loss))
 		
 	sess.close()	
