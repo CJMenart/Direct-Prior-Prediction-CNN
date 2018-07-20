@@ -103,7 +103,7 @@ def eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess):
 		for net in range(len(nets)):
 			acc_counts[net].append((eval_labels[item] not in CLASS_LISTS[net]) if (np.argmax(ans[net])==len(CLASS_LISTS[net])) else CLASS_LISTS[net][np.argmax(ans[net])]==eval_labels[item])
 		final_ans = np.concatenate((ans[0][:,:-1],ans[1][:,:-1]),axis=1)
-		print(final_ans)
+		#print(final_ans)
 		sorting = np.concatenate((CLASS_LISTS[0],CLASS_LISTS[1]),axis=0)
 		sorting = np.argsort(sorting)
 		final_ans = final_ans[:,sorting]
@@ -122,7 +122,7 @@ def net_architecture(inputs,is_train,net):
 	feat = inputs                                         
 	for block in range(2):
 		for lay in range(3):
-			out_chann = WIDTHS[net]*(block+1)
+			out_chann = CONV_WIDTHS[net]*(block+1)
 			conv_weights = tf.get_variable('conv%d_%d_weights' % (block,lay),[3,3,in_chann,out_chann],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/9*in_chann))) # regularizer? Eh.
 			bias = tf.get_variable('conv%d_%d_bias' % (block,lay),[out_chann],tf.float32,initializer=tf.constant_initializer(0.01))
 			feat = tf.nn.conv2d(feat,conv_weights,[1,1,1,1],'SAME')

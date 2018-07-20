@@ -37,7 +37,7 @@ def mnist_expr(gpu=None):
 	nets = []
 	losses = []
 	inputs = []
-	targets = []
+	truths = []
 	
 	is_train = tf.placeholder(tf.bool,None)
 	total_loss = 0
@@ -45,20 +45,20 @@ def mnist_expr(gpu=None):
 	for net in range(NUM_BAG):
 		with tf.variable_scope(str(net)):
 		
-			inputs[net] = tf.placeholder(tf.float32,[None,28,28,1])
-			truths[net] = tf.placeholder(tf.int64,[None])
-			expanded_truths = tf.one_hot(truths,NCLASS+1)
-			feat = net_architecture(inputs,is_train,net)
+			inputs.append(tf.placeholder(tf.float32,[None,28,28,1]))
+			truths.append(tf.placeholder(tf.int64,[None]))
+			expanded_truths = tf.one_hot(truths[net],NCLASS)
+			feat = net_architecture(inputs[net],is_train,net)
 			final_weights = tf.get_variable('final_weights',[FC_WIDTH,NCLASS],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/FC_WIDTH)))
 			final_bias = tf.get_variable('final_bias',[NCLASS],tf.float32,initializer=tf.constant_initializer(0.01))
 			feat = tf.matmul(feat,final_weights)
 			feat = tf.nn.bias_add(feat,final_bias)
 			nets.append(tf.nn.softmax(feat,-1))
 			
-			losses.append(cross_entropy_loss(nets[net], target,1e-8))
+			losses.append(cross_entropy_loss(nets[net], expanded_truths,1e-8))
 			total_loss += losses[net]
 	
-	final_bag = tf.add_n(*nets)
+	final_bag = tf.add_n(nets)
 	final_bag = final_bag/NUM_BAG
 		
 	train = tf.train.AdamOptimizer(1e-4).minimize(total_loss)
@@ -80,9 +80,9 @@ def get_batch(data,labels,net):
 	"get batch with correct restrictions"
 	
 	#allowed_inds = np.array([i for i in range(len(labels)) if labels[i] in class_set])
-	if len(INDEX_LISTS) < net:
-		INDEX_LISTS[net] = []
-		CUR_INDEX_LISTS[net] = []
+	if len(INDEX_LISTS) < net+1:
+		INDEX_LISTS.append([])
+		CUR_INDEX_LISTS.append([])
 		INDEX_LISTS[net] = np.random.permute(len(labels))[:len(labels)*TRAIN_FRAC_PER_BAG]
 	inds = []
 	for i in range(BATCH_SIZE):
@@ -113,7 +113,7 @@ def eval(nets,final_bag,eval_data,eval_labels,inputs,truths,is_train,sess):
 	for net in range(len(nets)):
 		accs[net] = np.mean(acc_counts[net])
 		print('Net %d: Acc %.4f' %(net,accs[net]))
-	print('Final Bag: Acc %.4f', % final_acc)
+	print('Final Bag: Acc %.4f' % final_acc)
 	
 	file_print(','.join(["%.5f"%accs[net] for net in range(len(nets))] + ['%.5f' % final_acc]),'bagging_err.csv')
 	
@@ -123,7 +123,7 @@ def net_architecture(inputs,is_train,net):
 	feat = inputs                                         
 	for block in range(2):
 		for lay in range(3):
-			out_chann = WIDTHS[net]*(block+1)
+			out_chann = CONV_WIDTH*(block+1)
 			conv_weights = tf.get_variable('conv%d_%d_weights' % (block,lay),[3,3,in_chann,out_chann],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/9*in_chann))) # regularizer? Eh.
 			bias = tf.get_variable('conv%d_%d_bias' % (block,lay),[out_chann],tf.float32,initializer=tf.constant_initializer(0.01))
 			feat = tf.nn.conv2d(feat,conv_weights,[1,1,1,1],'SAME')
@@ -138,8 +138,8 @@ def net_architecture(inputs,is_train,net):
 	feat = tf.contrib.layers.flatten(feat)
 	in_chann = feat.shape.as_list()[-1]
 	
-	fc_weights = tf.get_variable('fc_weights',[in_chann,FC_WIDTHS[net]],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)))
-	fc_bias = tf.get_variable('fc_bias',[FC_WIDTHS[net]],tf.float32,initializer=tf.constant_initializer(0.01))
+	fc_weights = tf.get_variable('fc_weights',[in_chann,FC_WIDTH],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_chann)))
+	fc_bias = tf.get_variable('fc_bias',[FC_WIDTH],tf.float32,initializer=tf.constant_initializer(0.01))
 	feat = tf.matmul(feat,fc_weights)
 	feat = tf.nn.bias_add(feat,fc_bias)
 	feat = tf.nn.relu(feat)
