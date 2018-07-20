@@ -73,7 +73,7 @@ def mnist_expr(gpu=None):
 		sess.run(train,feed_dict=feed_dict)
 		if iter % ITER_PER_EVAL == 0:
 			print(iter)
-			eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess)
+			eval(nets,final_bag,eval_data,eval_labels,inputs,truths,is_train,sess)
 		
 
 def get_batch(data,labels,net):
@@ -83,26 +83,26 @@ def get_batch(data,labels,net):
 	if len(INDEX_LISTS) < net+1:
 		INDEX_LISTS.append([])
 		CUR_INDEX_LISTS.append([])
-		INDEX_LISTS[net] = np.random.permute(len(labels))[:len(labels)*TRAIN_FRAC_PER_BAG]
+		INDEX_LISTS[net] = np.random.permutation(len(labels))[:int(len(labels)*TRAIN_FRAC_PER_BAG)]
 	inds = []
 	for i in range(BATCH_SIZE):
 		if len(CUR_INDEX_LISTS[net]) == 0:
 			CUR_INDEX_LISTS[net] = list(INDEX_LISTS[net])
 		inds.append(CUR_INDEX_LISTS[net].pop(random.randint(0,len(CUR_INDEX_LISTS[net])-1)))
 	
-	return(data[inds,:,:,:],labels[ind])
+	return(data[inds,:,:,:],labels[inds])
 
 	
 def eval(nets,final_bag,eval_data,eval_labels,inputs,truths,is_train,sess):
 	acc_counts = [[] for i in range(NUM_BAG)]
 	accs = [[] for i in range(NUM_BAG)]
-	final_acc_count
+	final_acc_count = []
 	
 	for item in range(len(eval_labels)):
 		feed_dict = {is_train:False}		
 		for net in range(NUM_BAG):
-			feed_dict[inputs][net] = eval_data[np.newaxis,item,:,:,:]
-			feed_dict[truths][net] = eval_labels[np.newaxis,item]
+			feed_dict[inputs[net]] = eval_data[np.newaxis,item,:,:,:]
+			feed_dict[truths[net]] = eval_labels[np.newaxis,item]
 
 		ans = sess.run(nets + [final_bag],feed_dict=feed_dict)
 		for net in range(len(nets)):
