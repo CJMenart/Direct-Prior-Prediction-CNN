@@ -22,7 +22,7 @@ CLASS_SETS['ROUND'] = [0,2,3,6,8]
 CLASS_SETS['STRAIGHT'] = [1,4,5,7,9]
 ITER_PER_EVAL = 1000
 CLASS_NET_TYPES = ['ALL','ROUND','STRAIGHT']
-LEAK_CHANCE = 0.32  #make sure is less than 50%...
+LEAK_CHANCE = 0.20
 
 def mnist_expr(gpu=None):
 

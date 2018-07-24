@@ -66,7 +66,7 @@ def mnist_expr(gpu=None):
 	train = tf.group(train,*update_ops)
 	tf.global_variables_initializer().run()
 
-	for iter in range(50001):
+	for iter in range(100001):
 		feed_dict = {is_train:True}
 		for net in range(NUM_BAG):
 			feed_dict[inputs[net]],feed_dict[truths[net]] = get_batch(train_data,train_labels,net)
