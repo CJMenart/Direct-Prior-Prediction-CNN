@@ -15,8 +15,9 @@ DROP_PROB = 0.0
 CLASS_LISTS = [[0,2,3,6,8],[1,4,5,7,9],[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,8,9]]
 CONV_WIDTHS = [32,32,32,45,32]
 FC_WIDTHS = [256,256,256,362,549]
-INDEX_LIST = [[]]
+INDEX_LISTS = []
 ITER_PER_EVAL = 1000
+LEAK_CHANCE = 0.16
 
 def mnist_expr(gpu=None):
 
@@ -37,18 +38,22 @@ def mnist_expr(gpu=None):
 	#create simple models	
 	nets = []
 	losses = []
+	inputs = []
+	truths = []
 	
 	is_train = tf.placeholder(tf.bool,None)
-	inputs = tf.placeholder(tf.float32,[None,28,28,1])
-	truths = tf.placeholder(tf.int64,[None])
-	expanded_truths = tf.one_hot(truths,NCLASS+1)
+	
 	total_loss = 0
 	
 	for net in range(len(CLASS_LISTS)):
+	
+		inputs.append(tf.placeholder(tf.float32,[None,28,28,1]))
+		truths.append(tf.placeholder(tf.int64,[None]))
+		expanded_truths = tf.one_hot(truths[net],NCLASS+1)
 		
 		with tf.variable_scope(str(net)):
 			NOUT = len(CLASS_LISTS[net])+1
-			feat = net_architecture(inputs,is_train,net)
+			feat = net_architecture(inputs[net],is_train,net)
 			final_weights = tf.get_variable('final_weights',[FC_WIDTHS[net],NOUT],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/FC_WIDTHS[net])))
 			final_bias = tf.get_variable('final_bias',[NOUT],tf.float32,initializer=tf.constant_initializer(0.01))
 			feat = tf.matmul(feat,final_weights)
@@ -61,33 +66,37 @@ def mnist_expr(gpu=None):
 			losses.append(cross_entropy_loss(nets[net], target,1e-8))
 			total_loss += losses[net]
 			
-	train = tf.train.AdamOptimizer(1e-4).minimize(total_loss)
+	train = tf.train.AdamOptimizer(1e-2).minimize(total_loss)
 	update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 	train = tf.group(train,*update_ops)
 	tf.global_variables_initializer().run()
 
 	for iter in range(100001):
 		feed_dict = {is_train:True}
-		feed_dict[inputs],feed_dict[truths] = get_batch(train_data,train_labels)
+		for net in range(len(CLASS_LISTS)):
+			feed_dict[inputs[net]],feed_dict[truths[net]] = get_batch(train_data,train_labels,net)
 		sess.run(train,feed_dict=feed_dict)
 		if iter % ITER_PER_EVAL == 0:
 			print(iter)
 			eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess)
 		
 
-def get_batch(data,labels):
+def get_batch(data,labels,net):
 	"get batch with correct restrictions"
 	
 	#allowed_inds = np.array([i for i in range(len(labels)) if labels[i] in class_set])
 	inds = []
+	if len(INDEX_LISTS) < net+1:
+		INDEX_LISTS.append([])
 	for i in range(BATCH_SIZE):
-		if len(INDEX_LIST[0]) == 0:
-			INDEX_LIST[0] = [i for i in range(len(labels))]
-		inds.append(INDEX_LIST[0].pop(random.randint(0,len(INDEX_LIST[0])-1)))
+		if len(INDEX_LISTS[net]) == 0:
+			INDEX_LISTS[net] = [i for i in range(len(labels)) if (labels[i] in CLASS_LISTS[net] or np.random.uniform() < LEAK_CHANCE)]
+			#INDEX_LIST[0] = [i for i in range(len(labels))]
+		inds.append(INDEX_LISTS[net].pop(random.randint(0,len(INDEX_LISTS[net])-1)))
 	
 	truths = labels[inds]
 	return(data[inds,:,:,:],truths)
-
+	
 	
 def eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess):
 	acc_counts = [[] for i in range(len(nets))]
@@ -96,8 +105,10 @@ def eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess):
 	
 	for item in range(len(eval_labels)):
 		feed_dict = {is_train:False}		
-		feed_dict[inputs] = eval_data[np.newaxis,item,:,:,:]
-		feed_dict[truths] = eval_labels[np.newaxis,item]
+		
+		for net in range(len(nets)):
+			feed_dict[inputs[net]] = eval_data[np.newaxis,item,:,:,:]
+			feed_dict[truths[net]] = eval_labels[np.newaxis,item]
 
 		ans = sess.run(nets,feed_dict=feed_dict)
 		for net in range(len(nets)):
