@@ -10,7 +10,7 @@ import pickle as pkl
 
 NCLASS = 10
 BATCH_SIZE = 32
-WIDTHS = [8,16,32]
+WIDTHS = [16,32,64]
 FC_WIDTH = 256
 VAR_POP = 16
 DROP_PROB = 0.0
@@ -21,23 +21,25 @@ ITER_PER_EVAL = 1000
 def cifar_expr(gpu=None):
 
 	#load data
-	data_dir = ''
+	data_dir = r'C:\Users\menart.1\Documents\Classification Datasets\cifar-10'
 	train_data = None
 	train_labels = None
 	for batch in range(5):
-		with open(os.path.join(data_dir,'data_batch_%d' % batch),'rb') as f:
+		with open(os.path.join(data_dir,'data_batch_%d' % (batch+1)),'rb') as f:
 			batch = pkl.load(f,encoding='bytes')
 		data = np.reshape(np.transpose(batch[b'data']),[32,32,3,-1])
 		if train_data is None:
 			train_data = data
-			train_labels = data[b'labels']
+			train_labels = batch[b'labels']
 		else:
-			train_data = np.concatenate([train_data,data],-1)
-			train_data = np.concatenate([train_labels,batch[b'labels']],-1)
+			train_data = np.concatenate((train_data,data),-1)
+			train_labels = np.concatenate((train_labels,batch[b'labels']),-1)
 	with open(os.path.join(data_dir,'test_batch'),'rb') as f:
 			test_batch = pkl.load(f,encoding='bytes')
 	eval_data = np.reshape(np.transpose(test_batch[b'data']),[32,32,3,-1])
-	eval_labels = test_batch[b'labels']
+	eval_labels = np.array(test_batch[b'labels'])
+	train_data = np.moveaxis(train_data,-1,0)
+	eval_data = np.moveaxis(eval_data,-1,0)
 	
 	print(eval_data.shape)
 	print(train_data.shape)
@@ -116,7 +118,6 @@ def eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess):
 		for net in range(len(nets)):
 			acc_counts[net].append((eval_labels[item] not in CLASS_LISTS[net]) if (np.argmax(ans[net])==len(CLASS_LISTS[net])) else CLASS_LISTS[net][np.argmax(ans[net])]==eval_labels[item])
 		final_ans = np.concatenate((ans[0][:,:-1],ans[1][:,:-1]),axis=1)
-		print(final_ans)
 		sorting = np.concatenate((CLASS_LISTS[0],CLASS_LISTS[1]),axis=0)
 		sorting = np.argsort(sorting)
 		final_ans = final_ans[:,sorting]
@@ -127,14 +128,14 @@ def eval(nets,eval_data,eval_labels,inputs,truths,is_train,sess):
 		print('Net %d: Acc %.4f' %(net,accs[net]))
 	print('Final System: Acc %.4f' % np.mean(acc_final))
 	
-	file_print(','.join(["%.5f"%accs[net] for net in range(len(nets))] + ['.%5f' % np.mean(acc_final)]),'self_assign_err.csv')
+	file_print(','.join(["%.5f"%accs[net] for net in range(len(nets))] + ['%.5f' % np.mean(acc_final)]),'self_assign_cifar.csv')
 	
 	
 def net_architecture(inputs,is_train):	
 	in_chann = inputs.shape.as_list()[-1]
 	feat = inputs                                         
 	for block in range(3):
-		for lay in range(1):
+		for lay in range(2):
 			out_chann = WIDTHS[block]
 			conv_weights = tf.get_variable('conv%d_%d_weights' % (block,lay),[3,3,in_chann,out_chann],tf.float32,initializer=tf.truncated_normal_initializer(np.sqrt(2/9*in_chann))) # regularizer? Eh.
 			bias = tf.get_variable('conv%d_%d_bias' % (block,lay),[out_chann],tf.float32,initializer=tf.constant_initializer(0.01))

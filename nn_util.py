@@ -237,3 +237,18 @@ def sparse_fc_layer(in_feat,out_chann,net_opts,is_train,is_last_layer=False):
 	tf.add_to_collection('fresh',biases)
 	
 	return activation
+	
+
+def perturbative_layer(in_feat,out_chann,net_opts,is_train):
+	"replacement for conv layer from https://arxiv.org/pdf/1806.01817v1.pdf. probably crap but I want to test it."
+	#requires fixed image size
+	in_shape = in_feat.shape.as_list()[1:]
+	noise = tf.get_variable('noise',[1] + in_shape,DAT_TYPE,initializer=tf.random_uniform_initializer(-net_opts['perturb_range'],net_opts['perturb_range']),trainable=False)
+	noised_feat = in_feat + noise
+	noised_activation = tf.nn.relu(noised_feat)
+	
+	linear_combination_weights = tf.get_variable('weights',[1,1,in_shape[-1],out_chann],DAT_TYPE,initializer=tf.truncated_normal_initializer(np.sqrt(2/in_shape[-1])),regularizer=tf.contrib.layers.l2_regularizer(net_opts['regularization_weight']))
+	
+	out_feat = tf.nn.conv2d(noised_activation,linear_combination_weights,[1,1,1,1],'SAME')
+	return out_feat
+	
