@@ -85,8 +85,9 @@ class PriorNet:
 				if net_opts['is_softmax']:
 					activation = tf.nn.softmax(activation,-1)
 				else:
-					activation = tf.nn.relu(activation, name='activation')
-					activation = activation/tf.reduce_sum(activation,-1)
+					#activation = tf.nn.relu(activation, name='activation')
+					#activation = activation/tf.reduce_sum(activation,-1)
+					activation = tf.nn.sigmoid(activation)
 			else: #assumed we have binary target if not distribution
 				activation = tf.nn.sigmoid(activation)
 					
@@ -104,6 +105,12 @@ class PriorNet:
 				return categorical_cross_entropy_loss(self.prior,self.prior_target,net_opts['epsilon'])
 			if net_opts['dist_loss'] == 'kl_divergence':
 				return kl_divergence_loss(self.prior,self.prior_target,net_opts['epsilon'])
+			if net_opts['dist_loss'] == 'euclidean':
+				return euclidean_distance_loss(self.prior,self.prior_target)
+			if net_opts['dist_loss'] == 'squared_error':
+				return squared_error_loss(self.prior,self.prior_target)
+			if net_opts['dist_loss'] == 'magnitude_diff':
+				return magnitude_diff_loss(self.prior,self.prior_target,net_opts['epsilon'])
 			else:
 				raise Exception('Unrecognized loss function ID.')
 		else:

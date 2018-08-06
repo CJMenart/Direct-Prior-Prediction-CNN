@@ -36,6 +36,18 @@ def kl_divergence_loss(out,truth_vec,epsilon):
 	return tf.reduce_mean(tf.reduce_sum(truth_vec*tf.log(truth_vec/tf.minimum(1.0,out+epsilon)+epsilon),axis=-1))
 	
 
+def euclidean_distance_loss(out,truth_vec):
+	return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(truth_vec-out,2),axis=-1)))
+
+	
+def magnitude_diff_loss(out,truth_vec,epsilon):
+	"element-wise difference in orders of magnitude between source and target."
+	return tf.reduce_mean(tf.reduce_sum(tf.abs(tf.log(out+epsilon)-tf.log(truth_vec+epsilon)),axis=-1))
+	
+def squared_error_loss(out,truth_vec):
+	return tf.reduce_mean(tf.reduce_sum(tf.pow(truth_vec-out,2),axis=-1))
+
+	
 def avg_one_inf_norm_loss(out,truth_vec):
 	"The average of the L1 and L-Infinity norms of the absolute distance between estimation and target. Researched by\
 	Mo Akbar as effective for arbitrary distribution-matching. But I am suspicious of the work, and think this may only be safe with adaptive gradients."
