@@ -52,8 +52,8 @@ def squared_error_loss(out,truth_vec):
 def weighted_squared_err_loss(out,truth_vec,class_frequency):
 	false_pos_weight = class_frequency*2
 	false_neg_weight = 2-class_frequency*2
-	false_pos_err = tf.minimum(out-truth_vec,0.0)
-	false_neg_err = tf.minimum(truth_vec-out,0.0)
+	false_pos_err = tf.maximum(out-truth_vec,0.0)
+	false_neg_err = tf.maximum(truth_vec-out,0.0)
 	return tf.reduce_mean(false_pos_weight*tf.pow(false_pos_err,2) + false_neg_weight*tf.pow(false_neg_err,2))
 
 	
