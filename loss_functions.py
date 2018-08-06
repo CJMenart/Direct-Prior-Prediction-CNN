@@ -44,8 +44,17 @@ def magnitude_diff_loss(out,truth_vec,epsilon):
 	"element-wise difference in orders of magnitude between source and target."
 	return tf.reduce_mean(tf.reduce_sum(tf.abs(tf.log(out+epsilon)-tf.log(truth_vec+epsilon)),axis=-1))
 	
+	
 def squared_error_loss(out,truth_vec):
 	return tf.reduce_mean(tf.reduce_sum(tf.pow(truth_vec-out,2),axis=-1))
+
+	
+def weighted_squared_err_loss(out,truth_vec,class_frequency):
+	false_pos_weight = class_frequency*2
+	false_neg_weight = 2-class_frequency*2
+	false_pos_err = tf.minimum(out-truth_vec,0.0)
+	false_neg_err = tf.minimum(truth_vec-out,0.0)
+	return tf.reduce_mean(false_pos_weight*tf.pow(false_pos_err,2) + false_neg_weight*tf.pow(false_neg_err,2))
 
 	
 def avg_one_inf_norm_loss(out,truth_vec):

@@ -97,7 +97,7 @@ class PriorNet:
 		"specific loss we may want to use in the case of a binary prior."
 		if net_opts['is_target_distribution']:
 			if net_opts['is_loss_weighted_by_class']:
-				warnings.warn('full cross-entropy loss on distribution should not/will not be weighted by class frequency.')
+				warnings.warn('full cross-entropy loss on distribution may not be weighted by class frequency.')
 			#TODO options for various loss
 			if net_opts['dist_loss'] == 'chi_squared':
 				return chi_squared_loss(self.prior,self.prior_target,net_opts['epsilon'])
@@ -108,7 +108,10 @@ class PriorNet:
 			if net_opts['dist_loss'] == 'euclidean':
 				return euclidean_distance_loss(self.prior,self.prior_target)
 			if net_opts['dist_loss'] == 'squared_error':
-				return squared_error_loss(self.prior,self.prior_target)
+				if net_opts['is_loss_weighted_by_class']:
+					return weighted_squared_err_loss(self.priorr,self.prior_target,self.class_frequency)
+				else:
+					return squared_error_loss(self.prior,self.prior_target)
 			if net_opts['dist_loss'] == 'magnitude_diff':
 				return magnitude_diff_loss(self.prior,self.prior_target,net_opts['epsilon'])
 			else:
